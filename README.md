@@ -1,121 +1,109 @@
-# PolyTrack - Reverse Engineering & Local Environment
+# 🏎️ PolyTrack - Standalone Edition & Local Environment
 
-Projet de rétro-ingénierie, d'analyse technique et d'environnement local pour le jeu web **PolyTrack** (créé par [Kodub](https://www.kodub.com/apps/polytrack)).
+Édition autonome, complète et 100% hors-ligne du jeu web **PolyTrack** (créé initialement par Kodub), avec support multijoueur **LAN (Réseau Local)** et **WAN (Internet)**, éditeur de circuit, personnalisation (Garage), décodeurs 3D Draco et physique WebAssembly.
 
 ---
 
-## 📊 Analyse Technique du Site et du Jeu
+## 🌐 Liens & Démo en Ligne
 
-Le jeu PolyTrack repose sur une architecture moderne de jeu web 3D optimisée pour les performances et la latence :
+- **Jeu en Ligne (GitHub Pages)** : [https://qyxntra.github.io/polytrack-standalone/](https://qyxntra.github.io/polytrack-standalone/)
+- **Dépôt GitHub** : [https://github.com/Qyxntra/polytrack-standalone](https://github.com/Qyxntra/polytrack-standalone)
 
-### 1. Structure du Portail Web (`web/`)
-- **URL d'origine** : `https://www.kodub.com/apps/polytrack`
-- **Rôle** : Wrapper responsive et conteneur d'affichage.
-- **Intégration** : Utilise une balise `<iframe>` sécurisée avec bac à sable (`sandbox="allow-scripts allow-same-origin allow-top-navigation allow-popups allow-popups-to-escape-sandbox allow-pointer-lock allow-downloads"`).
-- **Communication inter-fenêtres** : Synchronisation des états et de l'historique d'URL (`window.history.replaceState`) via `window.addEventListener('message')`.
-- **Verrouillage du curseur (Pointer Lock)** : Activé pour permettre le contrôle caméra et voiture fluide.
+---
 
-### 2. Moteur de Jeu et Rendu 3D (`app/`)
-- **Moteur Graphique** : [Three.js](https://threejs.org/) (intégré dans `main.bundle.js`, module `9437.js`).
-- **Modèles 3D** : Formats GLTF / GLB compacts (`models/car.glb`, `models/road.glb`, `models/blocks.glb`, `models/wall_track.glb`, etc.).
-- **Polices et Typographie** : Police personnalisée basse résolution `forced_square.woff2`.
-- **Interface Utilisateur (HUD & Menus)** : Système d'éléments DOM légers superposés au canevas WebGL (`#ui`, `#transition-layer`).
+## ⚡ Caractéristiques Principales
 
-### 3. Moteur Physique WebAssembly & Web Worker (`polytrack_physics.wasm`)
-- **WASM Engine** : Moteur de simulation physique compilé en WebAssembly (`polytrack_physics.wasm`, ~396 Ko).
-- **Worker Dédié** : `simulation_worker.bundle.js` exécute la physique et la détection de collisions hors du thread principal afin de garantir un framerate stable à 60/120+ FPS.
-- **Bridge JS/WASM** : `lib/polytrack_physics.js` (généré avec Emscripten).
-
-### 4. Éditeur de Circuit & Encodage des Pistes
-- Module de sérialisation binaire (décompilé dans `src/main/11.js`) capable d'encoder et décoder les circuits sous forme de chaînes compactes (pistes de la communauté et circuits officiels).
-- Éditeur 3D complet avec grille de placement dynamique et rotations 3 axes (X, Y, Z).
+- **100% Autonome & Hors-Ligne** : Toutes les communications avec les serveurs externes ont été neutralisées et redirigées vers le serveur local. Aucune dépendance externe.
+- **Support Multijoueur LAN & WAN** :
+  - **LAN (Réseau Local)** : Jouez avec des amis connectés au même réseau Wi-Fi ou Ethernet avec une latence quasi-nulle.
+  - **WAN (Internet)** : Jouez à distance via Internet avec le système de négociation WebRTC et serveurs Google STUN publics.
+  - **Interface Thématique** : Sélecteur direct [ LAN (Local) ] / [ WAN (Internet) ] intégré au menu de création de partie selon le design d'origine du jeu.
+- **Éditeur de Circuits & Garage Complets** :
+  - Tous les bundles dynamiques Webpack (112.bundle.js, 604.bundle.js, etc.) sont inclus.
+  - Modèle 3D garage.glb, polices orced_square.json et 193 drapeaux nationaux SVG inclus.
+- **78 Circuits Officiels & Communautaires** : Tous les circuits .track et leurs vignettes de prévisualisation sont embarqués en local.
+- **Physique WebAssembly Haute Performance** : Moteur polytrack_physics.wasm et worker multithreadé dédié.
+- **Décodeurs Draco 3D Intégrés** : Rendu optimal des maillages compressés Google Draco en local.
 
 ---
 
 ## 📁 Organisation du Répertoire
 
-```text
+`	ext
 Game/
-├── app/                               # Client autonome du jeu (exécutable hors-ligne)
-│   ├── index.html                     # Lanceur du jeu WebGL
+├── app/                               # Client autonome du jeu (exécutable hors-ligne ou sur GitHub Pages)
+│   ├── index.html                     # Lanceur principal du jeu WebGL
 │   ├── main.bundle.js                 # Bundle principal de l'application
-│   ├── simulation_worker.bundle.js    # Worker Web pour la physique du véhicule
+│   ├── 112.bundle.js                  # Module dynamique : Éditeur de circuits
+│   ├── 604.bundle.js                  # Module dynamique : Garage & Customisation
+│   ├── simulation_worker.bundle.js    # Web Worker pour la simulation physique
 │   ├── error_screen.bundle.js         # Écran de gestion des erreurs
-│   ├── polytrack_physics.wasm         # Moteur physique compilé WebAssembly
+│   ├── polytrack_physics.wasm         # Moteur physique compilé en WebAssembly (396 Ko)
+│   ├── forced_square.json             # Définitions des glyphes de police pour l'éditeur
 │   ├── lib/
+│   │   ├── draco/                     # Décodeurs WebAssembly Google Draco (draco_decoder.wasm, wrapper)
 │   │   └── polytrack_physics.js       # Wrapper Emscripten
-│   ├── forced_square.woff2            # Police du jeu
-│   ├── manifest.json                  # Manifest PWA
-│   ├── audio/                         # Effets sonores et musiques (engine, tires, collision, music...)
-│   ├── models/                        # Modèles 3D GLTF/GLB (voiture, routes, obstacles, décors...)
-│   ├── images/                        # Icônes SVG, textures de fumée et illustrations
-│   └── tracks/                        # Vignettes des circuits officiels et communautaires
+│   ├── models/                        # Modèles 3D GLTF/GLB (car.glb, garage.glb, blocks.glb, etc.)
+│   ├── audio/                         # Effets sonores et musique du jeu
+│   ├── images/                        # Icônes SVG, drapeaux nationaux et textures
+│   └── tracks/                        # 78 circuits officiels et communautaires (.track)
 │
-├── web/                               # Portail web d'origine (kodub.com/apps/polytrack)
-│   ├── index.html                     # Page d'accueil encapsulant le jeu
-│   ├── css/
-│   │   └── app.css                    # Feuilles de styles du portail
-│   ├── favicon/                       # Icônes d'application
-│   └── images/                        # Visuel OpenGraph et médias
-│
+├── web/                               # Portail web d'origine
 ├── src/                               # Code source décompilé, désobfusqué et unminified
-│   ├── module_catalog.json            # Index classifié des 211 modules extraits
-│   ├── main/                          # 211 modules Webpack unbundlés + deobfuscated.js (66k lignes)
-│   ├── simulation_worker/             # Modules unbundlés du worker physique
-│   └── error_screen/                  # Modules unbundlés de l'écran d'erreur
+│   ├── module_catalog.json            # Index des modules
+│   ├── main/                          # 211 modules décompilés du jeu principal
+│   ├── editor/                        # Modules décompilés de l'éditeur de circuits
+│   └── garage/                        # Modules décompilés du garage
 │
-├── serve.py                           # Serveur HTTP local autonome en Python (zéro dépendance)
-├── server.js                          # Serveur HTTP de développement pour Node.js
-├── package.json                       # Scripts npm pour exécuter ou ré-extraire les modules
-├── .gitignore                         # Règles d'exclusion Git
-└── README.md                          # Documentation du projet
-```
+├── index.html                         # Redirection automatique vers app/ (pour GitHub Pages)
+├── server.js                          # Serveur Node.js complet avec signalement WebSocket Multijoueur
+├── serve.py                           # Serveur HTTP local autonome Python
+├── package.json                       # Scripts npm
+└── README.md                          # Documentation
+`
 
 ---
 
-## 🚀 Démarrage Rapide
+## 🚀 Démarrage Local
 
-Vous pouvez lancer le serveur local immédiatement soit avec **Python**, soit avec **Node.js** :
+### Mode Multijoueur Complet (Node.js) - Recommandé
 
-### Option 1 : Avec Python (recommandé, aucune dépendance requise)
-```bash
-python serve.py
-```
-Le serveur démarrera sur le port 8080 :
-- **Jeu autonome (Plein écran)** : [http://localhost:8080/app/](http://localhost:8080/app/)
-- **Portail Kodub original** : [http://localhost:8080/web/](http://localhost:8080/web/)
+Ce mode active le serveur HTTP local **et** le serveur de signalement WebSocket pour les salons LAN et WAN :
 
-*(Optionnel : vous pouvez spécifier un autre port, ex: `python serve.py 3000`)*
-
-### Option 2 : Avec Node.js
-```bash
-npm start
-```
-ou
-```bash
+`ash
 node server.js
-```
+`
+
+Le serveur affichera votre adresse locale :
+`	ext
+============================================================
+ PolyTrack LAN & WAN Multiplayer Server Active
+============================================================
+ Localhost URL : http://localhost:8080/app/
+ LAN Web URL   : http://192.168.1.10:8080/app/
+ Signaling WS  : ws://192.168.1.10:8080/api/v6/multiplayer/
+============================================================
+`
+
+- **Accès sur le PC hôte** : [http://localhost:8080/app/](http://localhost:8080/app/)
+- **Accès pour les joueurs sur le même réseau (LAN)** : http://<VOTRE_IP_LOCALE>:8080/app/
+
+### Mode Simple (Python)
+
+Pour jouer en solo / éditeur sans dépendances :
+`ash
+python serve.py
+`
 
 ---
 
-## 🔍 Modules Clés Décompilés (`src/main/`)
+## 🎮 Comment Jouer en Multijoueur
 
-| Module | Rôle & Description |
-| :--- | :--- |
-| **`deobfuscated.js`** | Fichier complet désobfusqué (66 686 lignes de code JavaScript propre et lisible). |
-| **`9437.js`** | Moteur de rendu 3D Three.js, shaders personnalisés, gestion des lumières et de la caméra. |
-| **`4922.js`** | Boucle de jeu principale, contrôleur de véhicule, gestion des collisions et inputs. |
-| **`3075.js`** | Définition des blocs de circuit, géométries procédurales et système de virages/loopings. |
-| **`11.js`** | Décodeur et encodeur binaire des pistes (slopes, pillars, planes, checkpoints). |
-| **`7888.js`** | Système audio spatialisé Web Audio API (gestion du régime moteur, crissement des pneus). |
-| **`641.js`** | Interface utilisateur (HUD, chronomètre, tableau de bord, contrôles de course). |
-| **`8185.js`** & **`6762.js`** | Moteur de l'éditeur de circuit (grille de construction, sélection, undo/redo). |
-
----
-
-## 📜 Historique Git Local
-
-Le dépôt a été initialisé avec une branche `main` et structuré en commits logiques pour faciliter le versionnement :
-1. `Initial commit: Project structure, dev servers, and configuration`
-2. `feat(assets): Download complete PolyTrack web game assets and portal files`
-3. `feat(decompile): Unpack, deobfuscate, and catalogue Webpack 5 modules`
+1. Lancez 
+ode server.js.
+2. Ouvrez le jeu sur [http://localhost:8080/app/](http://localhost:8080/app/).
+3. Cliquez sur **Multiplayer** puis **Host**.
+4. Choisissez le mode :
+   - **LAN (Local)** : Le salon génère un code (ex: LAN-1234). Les autres joueurs sur votre réseau local n'ont qu'à entrer ce code pour rejoindre immédiatement.
+   - **WAN (Internet)** : Le salon génère un code (ex: WAN-5678) et négocie une connexion WebRTC via Google STUN.
+5. Lancez la course !
