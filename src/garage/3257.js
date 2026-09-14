@@ -1,0 +1,6 @@
+var i = require(/*webcrack:missing*/"./1601.js");
+var s = i;
+var o = require(/*webcrack:missing*/"./6314.js");
+var a = o(s);
+a.push([module.id, ".user-export-ui > .background {\n\tposition: absolute;\n\tleft: 0;\n\ttop: 0;\n\tz-index: 1;\n\twidth: 100%;\n\theight: 100%;\n\tbackground-color: rgba(20, 20, 30, 0.5);\n\tpointer-events: auto;\n}\n\n.user-export-ui > .container {\n\tposition: absolute;\n\tleft: calc(50% - 500px / 2);\n\ttop: 35%;\n\tz-index: 2;\n\tmargin: 0;\n\tpadding: 10px;\n\tbox-sizing: border-box;\n\twidth: 500px;\n\theight: 150px;\n\tbackground-color: var(--surface-color);\n}\n\n.user-export-ui > .container > textarea {\n\tmargin: 0;\n\tpadding: 10px;\n\tbox-sizing: border-box;\n\tmin-width: 100%;\n\tmax-width: 100%;\n\tmin-height: calc(100% - 52px - 10px);\n\tmax-height: calc(100% - 52px - 10px);\n\tpointer-events: auto;\n\tbackground-color: var(--surface-tertiary-color);\n\tborder: none;\n\tresize: none;\n\tcolor: var(--text-color);\n\tword-break: break-all;\n\tfont-size: 20px;\n}\n.user-export-ui > .container > textarea:focus-visible {\n\toutline: none;\n}\n\n.user-export-ui > .container > .bar {\n\tmargin: 8px 0 0 0;\n}\n\n.user-export-ui > .container > .bar > .button.right {\n\tfloat: right;\n}\n", ""]);
+export const A = a;
