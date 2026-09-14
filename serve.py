@@ -34,6 +34,8 @@ class PolyTrackHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             return 'audio/mpeg'
         elif path.endswith('.svg'):
             return 'image/svg+xml'
+        elif path.endswith('.track'):
+            return 'text/plain'
         return super().guess_type(path)
 
     def end_headers(self):

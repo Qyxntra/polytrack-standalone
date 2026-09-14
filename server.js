@@ -23,6 +23,7 @@ const MIME_TYPES = {
   '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg',
   '.wav': 'audio/wav',
+  '.track': 'text/plain',
 };
 
 const server = http.createServer((req, res) => {
