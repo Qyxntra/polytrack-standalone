@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-PolyTrack Local Server
-Serves the game, web wrapper, and local mock API endpoints for offline local play.
-No network requests ever leave your computer.
+PolyTrack Standalone Server with LAN / WAN support.
 """
 
 import http.server
@@ -10,12 +8,23 @@ import socketserver
 import os
 import sys
 import json
+import socket
 import urllib.parse
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(DIRECTORY, 'data')
-os.makedirs(DATA_DIR, exist_ok=True)
+
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "127.0.0.1"
+
+LOCAL_IP = get_local_ip()
 
 class PolyTrackHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -63,7 +72,6 @@ class PolyTrackHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
-        # Local mock API endpoints
         if path.startswith('/api/'):
             self.handle_api_get(path, urllib.parse.parse_qs(parsed.query))
             return
@@ -89,16 +97,28 @@ class PolyTrackHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.end_headers()
 
-        if 'leaderboardUserEntry' in path:
-            # Current user's rank on track
+        if 'networkInfo' in path:
+            resp = {
+                "localIp": LOCAL_IP,
+                "port": PORT,
+                "lanUrl": f"http://{LOCAL_IP}:{PORT}/app/"
+            }
+            self.wfile.write(json.dumps(resp).encode('utf-8'))
+        elif 'iceServers' in path:
+            # Return Google STUN servers for WebRTC NAT traversal (WAN & LAN)
+            resp = [
+                {"urls": "stun:stun.l.google.com:19302"},
+                {"urls": "stun:stun1.l.google.com:19302"},
+                {"urls": "stun:stun2.l.google.com:19302"}
+            ]
+            self.wfile.write(json.dumps(resp).encode('utf-8'))
+        elif 'leaderboardUserEntry' in path:
             resp = {"position": 1, "time": 0, "id": "local_user"}
             self.wfile.write(json.dumps(resp).encode('utf-8'))
         elif 'leaderboard' in path:
-            # Track leaderboard response
             resp = {"total": 0, "entries": [], "userEntry": None}
             self.wfile.write(json.dumps(resp).encode('utf-8'))
         elif 'user' in path:
-            # User profile response
             resp = {
                 "nickname": "Player",
                 "countryCode": None,
@@ -106,7 +126,7 @@ class PolyTrackHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "isVerifier": False
             }
             self.wfile.write(json.dumps(resp).encode('utf-8'))
-        elif 'recordings' in path or 'iceServers' in path:
+        elif 'recordings' in path:
             self.wfile.write(b"[]")
         else:
             self.wfile.write(b"{}")
@@ -119,15 +139,13 @@ class PolyTrackHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 def run():
     socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), PolyTrackHTTPRequestHandler) as httpd:
-        url = f"http://localhost:{PORT}/app/"
-        wrapper_url = f"http://localhost:{PORT}/web/"
+    with socketserver.TCPServer(("0.0.0.0", PORT), PolyTrackHTTPRequestHandler) as httpd:
         print("=" * 60)
         print(" PolyTrack Standalone Local Server")
         print("=" * 60)
-        print(f" Game Standalone : {url}")
-        print(f" Web Portal      : {wrapper_url}")
-        print(f" Local Mock API  : http://localhost:{PORT}/api/")
+        print(f" Localhost URL : http://localhost:{PORT}/app/")
+        print(f" LAN Web URL   : http://{LOCAL_IP}:{PORT}/app/")
+        print(f" Web Portal    : http://localhost:{PORT}/web/")
         print(" Press Ctrl+C to stop the server.")
         print("=" * 60)
         try:

@@ -58869,6 +58869,49 @@
       c.className = "info";
       a.appendChild(c);
       l();
+      let _netM = window.polytrackNetworkMode || "lan";
+      window.polytrackNetworkMode = _netM;
+      const _netBox = document.createElement("div");
+      _netBox.className = "game-mode-container";
+      t.appendChild(_netBox);
+      const _netT = document.createElement("div");
+      _netT.className = "title";
+      _netT.textContent = "Network Mode";
+      _netBox.appendChild(_netT);
+      const _netBtns = [];
+      for (const m of ["lan", "wan"]) {
+        const b = document.createElement("button");
+        b.className = "button" + (m == _netM ? " selected" : "");
+        b.textContent = m == "lan" ? "LAN (Local)" : "WAN (Internet)";
+        b.addEventListener("click", () => {
+          (0, R.gn)(this, dc, "f").playUIClick();
+          _netM = m;
+          window.polytrackNetworkMode = m;
+          _netUp();
+          for (const x of _netBtns) {
+            x.classList.remove("selected");
+          }
+          b.classList.add("selected");
+        });
+        _netBox.appendChild(b);
+        _netBtns.push(b);
+      }
+      const _netInf = document.createElement("div");
+      _netInf.className = "info";
+      _netBox.appendChild(_netInf);
+      let _lanIp = "";
+      try {
+        fetch("/api/v6/networkInfo").then(r => r.json()).then(d => {
+          if (d && d.localIp) {
+            _lanIp = " (" + d.localIp + ":" + d.port + ")";
+            _netUp();
+          }
+        }).catch(() => {});
+      } catch (e) {}
+      const _netUp = () => {
+        _netInf.textContent = _netM == "lan" ? "Mode LAN: Joueurs sur le meme reseau local (Wi-Fi/Ethernet)" + _lanIp + ". Connexion directe sans lag." : "Mode WAN: Joueurs a distance via Internet (STUN public). Partagez votre code invite avec vos amis.";
+      };
+      _netUp();
       const h = document.createElement("div");
       h.className = "maximum-players-container";
       t.appendChild(h);
@@ -64639,17 +64682,17 @@
         if (this.determinismState != mo.Ok) {
           throw new Error("WebSocket creation not allowed with non-deterministic physics");
         }
-        return new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/" + (0, R.gn)(this, rf, "f") + "multiplayer/host");
+        return new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/" + (0, R.gn)(this, rf, "f") + "multiplayer/host?mode=" + (window.polytrackNetworkMode || "lan"));
       }
       createMultiplayerJoinWebSocket() {
         if (this.determinismState != mo.Ok) {
           throw new Error("WebSocket creation not allowed with non-deterministic physics");
         }
-        return new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/" + (0, R.gn)(this, rf, "f") + "multiplayer/join");
+        return new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/" + (0, R.gn)(this, rf, "f") + "multiplayer/join?mode=" + (window.polytrackNetworkMode || "lan"));
       }
       getIceServers() {
         return new Promise((e, t) => {
-          const n = "/api/" + (0, R.gn)(this, rf, "f") + "iceServers?version=0.6.2";
+          const n = "/api/" + (0, R.gn)(this, rf, "f") + "iceServers?version=0.6.2&mode=" + (window.polytrackNetworkMode || "lan");
           const i = new XMLHttpRequest();
           i.timeout = (0, R.gn)(this, ef, "f");
           i.overrideMimeType("text/plain");

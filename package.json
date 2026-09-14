@@ -19,5 +19,8 @@
     "webassembly"
   ],
   "author": "Kodub (Original Game)",
-  "license": "Proprietary"
+  "license": "Proprietary",
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
 }
