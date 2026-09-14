@@ -56682,37 +56682,19 @@
       return n;
     }
     function Qo() {
-      return Jo() != null;
+      return false;
     }
     function Jo() {
-      if (window.polytrackModConfiguration != null && (window.polytrackModConfiguration.modName != null || window.polytrackModConfiguration.author != null)) {
-        const e = window.polytrackModConfiguration.modName;
-        if (typeof e != "string") {
-          throw new Error("Invalid modName in polytrackModConfiguration");
-        }
-        const t = window.polytrackModConfiguration.author;
-        if (typeof t != "string") {
-          throw new Error("Invalid author in polytrackModConfiguration");
-        }
-        return {
-          modName: e,
-          author: t
-        };
-      }
       return null;
     }
     function Xo() {
-      return window.polytrackModConfiguration?.unblocked !== true && Yo();
+      return false;
     }
     function Yo() {
-      let e;
-      e = [/\.kodub\.com$/];
-      return !e.some(e => e.test(location.hostname));
+      return false;
     }
     function Zo() {
-      let e;
-      e = "https://www.crazygames.com/game/polytrack";
-      return e;
+      return "";
     }
     vo = new WeakMap();
     bo = new WeakMap();
@@ -59788,7 +59770,7 @@
       }
       const L = document.createElement("a");
       L.className = "button right";
-      L.href = "https://www.kodub.com/privacy/polytrack";
+      L.href = "#privacy";
       L.target = "_blank";
       L.innerHTML = "<img className=\"button-icon\" src=\"images/paper.svg\">";
       if (I.TK()) {
@@ -59800,7 +59782,7 @@
       (0, R.gn)(this, Eh, "f").push(L);
       const U = document.createElement("a");
       U.className = "button right";
-      U.href = "https://www.kodub.com/terms/polytrack";
+      U.href = "#terms";
       U.target = "_blank";
       U.innerHTML = "<img className=\"button-icon\" src=\"images/gavel.svg\">";
       if (I.TK()) {
@@ -59840,9 +59822,9 @@
     zh = function (e) {
       (0, R.gn)(this, ph, "f").innerHTML = "";
       const t = document.createElement("a");
-      t.href = "https://www.kodub.com";
+      t.href = "#";
       t.target = "_blank";
-      t.textContent = "© 2026 kodub.com - " + e.get("Version") + " 0.6.2";
+      t.textContent = "PolyTrack Local - " + e.get("Version") + " 0.6.2";
       (0, R.gn)(this, ph, "f").appendChild(t);
       const n = document.createElement("a");
       n.href = "https://opengameart.org/content/sci-fi-theme-1";
@@ -59885,7 +59867,7 @@
           (0, R.gn)(this, xh, "f").appendChild(document.createElement("br"));
           (0, R.gn)(this, xh, "f").appendChild(document.createTextNode((0, R.gn)(this, Xc, "f").get("Please read the Terms of Service for more information:")));
           const e = document.createElement("a");
-          e.href = "https://www.kodub.com/terms/polytrack";
+          e.href = "#terms";
           e.textContent = e.href;
           (0, R.gn)(this, xh, "f").appendChild(e);
         }
@@ -59996,7 +59978,7 @@
         {
           (0, R.GG)(this, fh, document.createElement("a"), "f");
           (0, R.gn)(this, fh, "f").className = "discord-link";
-          (0, R.gn)(this, fh, "f").href = "https://www.kodub.com/discord/polytrack";
+          (0, R.gn)(this, fh, "f").href = "#discord";
           (0, R.gn)(this, fh, "f").target = "_blank";
           (0, R.gn)(this, dh, "f").appendChild((0, R.gn)(this, fh, "f"));
           const e = document.createElement("img");
@@ -64027,7 +64009,7 @@
         rf.set(this, "v6/");
       }
       getLeaderboard(e, t, n, i, r) {
-        let a = "https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "leaderboard?version=0.6.2&trackId=" + t + "&skip=" + n.toString() + "&amount=" + i.toString() + "&onlyVerified=" + r.toString();
+        let a = "/api/" + (0, R.gn)(this, rf, "f") + "leaderboard?version=0.6.2&trackId=" + t + "&skip=" + n.toString() + "&amount=" + i.toString() + "&onlyVerified=" + r.toString();
         if (this.determinismState == mo.Ok) {
           a += "&userTokenHash=" + encodeURIComponent(e);
         }
@@ -64214,7 +64196,7 @@
         });
       }
       getLeaderboardUserEntry(e, t, n) {
-        const i = "https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "leaderboardUserEntry?version=0.6.2&trackId=" + t + "&userTokenHash=" + encodeURIComponent(e) + "&onlyVerified=" + n.toString();
+        const i = "/api/" + (0, R.gn)(this, rf, "f") + "leaderboardUserEntry?version=0.6.2&trackId=" + t + "&userTokenHash=" + encodeURIComponent(e) + "&onlyVerified=" + n.toString();
         return new Promise((e, t) => {
           const n = new XMLHttpRequest();
           n.timeout = (0, R.gn)(this, ef, "f");
@@ -64278,7 +64260,7 @@
         });
       }
       getRecordings(e) {
-        const t = "https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "recordings?version=0.6.2&ids=" + e.join(",");
+        const t = "/api/" + (0, R.gn)(this, rf, "f") + "recordings?version=0.6.2&ids=" + e.join(",");
         return new Promise((e, n) => {
           if (this.determinismState != mo.Ok) {
             n(new Error("Getting recordings not allowed"));
@@ -64368,7 +64350,7 @@
             if (h.length >= (0, R.gn)(this, nf, "f")) {
               c(new Error("Recording is too large"));
             } else {
-              const o = "https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "leaderboard";
+              const o = "/api/" + (0, R.gn)(this, rf, "f") + "leaderboard";
               let d = "version=0.6.2&userToken=" + encodeURIComponent(e) + "&nickname=" + encodeURIComponent(t) + (n == null ? "" : "&countryCode=" + encodeURIComponent(n)) + "&carStyle=" + i.serialize() + "&trackId=" + r + "&frames=" + s.numberOfFrames.toString() + "&recording=" + h;
               if (a != null) {
                 d += "&onlyVerified=" + a.toString();
@@ -64468,7 +64450,7 @@
       }
       submitUserProfile(e, t, n, i) {
         return new Promise((r, a) => {
-          const s = "https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "user";
+          const s = "/api/" + (0, R.gn)(this, rf, "f") + "user";
           const o = "version=0.6.2&userToken=" + encodeURIComponent(e) + "&nickname=" + encodeURIComponent(t) + (n == null ? "" : "&countryCode=" + encodeURIComponent(n)) + "&carStyle=" + i.serialize();
           const l = new XMLHttpRequest();
           l.timeout = (0, R.gn)(this, ef, "f");
@@ -64492,7 +64474,7 @@
           if (this.determinismState != mo.Ok) {
             s(new Error("Submit not allowed"));
           } else {
-            const o = "https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "verifyRecordings";
+            const o = "/api/" + (0, R.gn)(this, rf, "f") + "verifyRecordings";
             const l = "version=0.6.2&userToken=" + encodeURIComponent(e) + (t != null ? "&trackId=" + t : "") + "&maxFrames=" + n.toString() + "&getEstimatedRemaining=" + i.toString() + "&recordings=" + encodeURIComponent(JSON.stringify(r));
             const c = new XMLHttpRequest();
             c.timeout = (0, R.gn)(this, tf, "f");
@@ -64592,7 +64574,7 @@
       }
       getUser(e) {
         return new Promise((t, n) => {
-          const i = "https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "user?version=0.6.2&userToken=" + encodeURIComponent(e);
+          const i = "/api/" + (0, R.gn)(this, rf, "f") + "user?version=0.6.2&userToken=" + encodeURIComponent(e);
           const r = new XMLHttpRequest();
           r.timeout = (0, R.gn)(this, ef, "f");
           r.overrideMimeType("text/plain");
@@ -64657,17 +64639,17 @@
         if (this.determinismState != mo.Ok) {
           throw new Error("WebSocket creation not allowed with non-deterministic physics");
         }
-        return new WebSocket("https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "multiplayer/host");
+        return new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/" + (0, R.gn)(this, rf, "f") + "multiplayer/host");
       }
       createMultiplayerJoinWebSocket() {
         if (this.determinismState != mo.Ok) {
           throw new Error("WebSocket creation not allowed with non-deterministic physics");
         }
-        return new WebSocket("https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "multiplayer/join");
+        return new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/" + (0, R.gn)(this, rf, "f") + "multiplayer/join");
       }
       getIceServers() {
         return new Promise((e, t) => {
-          const n = "https://vps.kodub.com/" + (0, R.gn)(this, rf, "f") + "iceServers?version=0.6.2";
+          const n = "/api/" + (0, R.gn)(this, rf, "f") + "iceServers?version=0.6.2";
           const i = new XMLHttpRequest();
           i.timeout = (0, R.gn)(this, ef, "f");
           i.overrideMimeType("text/plain");

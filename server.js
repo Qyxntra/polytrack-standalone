@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 
 const PORT = process.env.PORT || 8080;
 const ROOT_DIR = __dirname;
@@ -28,16 +29,43 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 
-  let safePath = path.normalize(decodeURI(req.url)).replace(/^(\.\.[\/\\])+/, '');
-  if (safePath === '/' || safePath === '\\') {
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  const parsedUrl = url.parse(req.url, true);
+  const pathname = parsedUrl.pathname;
+
+  if (pathname === '/' || pathname === '') {
     res.writeHead(302, { Location: '/app/' });
     res.end();
     return;
   }
 
+  // Local mock API router
+  if (pathname.startsWith('/api/')) {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    if (pathname.includes('leaderboardUserEntry')) {
+      res.end(JSON.stringify({ position: 1, time: 0, id: 'local_user' }));
+    } else if (pathname.includes('leaderboard')) {
+      res.end(JSON.stringify({ total: 0, entries: [], userEntry: null }));
+    } else if (pathname.includes('user')) {
+      res.end(JSON.stringify({ nickname: 'Player', countryCode: null, carStyle: '000000', isVerifier: false }));
+    } else if (pathname.includes('recordings') || pathname.includes('iceServers')) {
+      res.end('[]');
+    } else {
+      res.end('{"status":"ok"}');
+    }
+    return;
+  }
+
+  let safePath = path.normalize(decodeURI(pathname)).replace(/^(\.\.[\/\\])+/, '');
   let filePath = path.join(ROOT_DIR, safePath);
 
   fs.stat(filePath, (err, stats) => {
@@ -67,7 +95,8 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`PolyTrack Dev Server running at http://localhost:${PORT}/`);
-  console.log(`Standalone Game: http://localhost:${PORT}/app/`);
-  console.log(`Web Portal:      http://localhost:${PORT}/web/`);
+  console.log(`PolyTrack Standalone Dev Server running at http://localhost:${PORT}/`);
+  console.log(`Standalone Game : http://localhost:${PORT}/app/`);
+  console.log(`Web Portal      : http://localhost:${PORT}/web/`);
+  console.log(`Local Mock API  : http://localhost:${PORT}/api/`);
 });
