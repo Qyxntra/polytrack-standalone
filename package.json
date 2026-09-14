@@ -1,0 +1,23 @@
+{
+  "name": "polytrack-local",
+  "version": "0.6.2",
+  "description": "PolyTrack Web Game - Client and Portal source reorganization, reverse-engineered modules and local dev server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "serve": "node server.js",
+    "serve:py": "python serve.py",
+    "unpack:main": "npx webcrack app/main.bundle.js -o src/main",
+    "unpack:worker": "npx webcrack app/simulation_worker.bundle.js -o src/simulation_worker"
+  },
+  "keywords": [
+    "polytrack",
+    "webgl",
+    "threejs",
+    "physics",
+    "racing-game",
+    "webassembly"
+  ],
+  "author": "Kodub (Original Game)",
+  "license": "Proprietary"
+}
