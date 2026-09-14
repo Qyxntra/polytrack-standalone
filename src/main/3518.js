@@ -1,0 +1,1 @@
+module.exports = require.p + "images/grid_large.svg";

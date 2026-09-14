@@ -1,0 +1,1 @@
+module.exports = require.p + "images/car_thumbnail_placeholder.png";

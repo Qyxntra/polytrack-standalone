@@ -1,0 +1,1 @@
+module.exports = require.p + "images/custom_tracks.jpg";

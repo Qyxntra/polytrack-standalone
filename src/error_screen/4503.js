@@ -1,0 +1,6 @@
+var r = require("./1601.js");
+var o = r;
+var a = require("./6314.js");
+var c = a(o);
+c.push([module.id, "#error-screen {\n\tdisplay: flex;\n\tflex-direction: column;\n\tpadding: max(10px, var(--safe-area-top-unscaled)) max(10px, var(--safe-area-right-unscaled)) max(10px, var(--safe-area-bottom-unscaled)) max(10px, var(--safe-area-left-unscaled));\n\tbox-sizing: border-box;\n\tposition: absolute;\n\tleft: 0;\n\ttop: 0;\n\tz-index: 1000;\n\twidth: 100%;\n\theight: 100%;\n\tbackground-color: var(--surface-color);\n}\n\n#error-screen > .title {\n\tfont-size: 28px;\n\tcolor: var(--text-color);\n}\n\n#error-screen > .version, #error-screen > .platform, #error-screen > .user-agent {\n\tfont-size: 20px;\n\tcolor: var(--text-color);\n\topacity: 0.5;\n}\n\n#error-screen > textarea {\n\tmargin: 10px 0;\n\theight: 100%;\n\tflex-grow: 1;\n\tbackground-color: var(--surface-tertiary-color);\n\tborder: none;\n\tresize: none;\n\tcolor: var(--text-color);\n\tword-break: break-word;\n\tfont-size: 20px;\n}\n#error-screen > textarea:focus-visible {\n\toutline: none;\n}\n\n#error-screen > .button-container {\n\tdisplay: flex;\n}\n\n#error-screen > .button-container > button:first-of-type {\n\tmargin-right: auto;\n}\n", ""]);
+export const A = c;

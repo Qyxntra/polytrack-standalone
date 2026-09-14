@@ -1,0 +1,1 @@
+module.exports = require.p + "forced_square.woff";

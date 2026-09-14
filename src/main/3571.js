@@ -1,0 +1,11 @@
+var i = require("./1601.js");
+var r = i;
+var a = require("./6314.js");
+var s = a;
+var o = require("./4417.js");
+var l = o;
+var c = new URL(require("./5148.js"), require.b);
+var h = s(r);
+var d = l(c);
+h.push([module.id, `.touch-controls-ui {\n\tpointer-events: none;\n}\n\n.touch-controls-ui > button {\n\tposition: absolute;\n\ttop: calc(1.5cm + 50px);\n\tmargin: 10px;\n\tpadding: 0;\n\twidth: 160px;\n\theight: 160px;\n\tbackground-color: var(--button-color);\n\tborder: none;\n\topacity: 0.6;\n\tpointer-events: auto;\n\ttouch-action: none;\n}\n.touch-controls-ui > button  > img {\n\tmargin: 0;\n\tpadding: 30px;\n\tvertical-align: top;\n\twidth: 100%;\n    height: 100%;\n\tbox-sizing: border-box;\n\tpointer-events: none;\n\ttransition: transform 0.25s ease-out;\n}\n.touch-controls-ui > button.active > img {\n    transform: scale(0.9);\n}\n\n.touch-controls-ui > .camera {\n\tleft: calc(1.5cm + var(--safe-area-horizontal));\n}\n\n.touch-controls-ui > .reset.checkpoint-available {\n\tbackground-image: url(${d});\n\tbackground-position: 71px 64px;\n\tbackground-size: 32px;\n\tbackground-repeat: no-repeat;\n}\n.touch-controls-ui > .reset {\n\tright: calc(1.5cm + var(--safe-area-horizontal));\n}\n\n.touch-controls-ui > .left-container {\n\tposition: absolute;\n\tleft: calc(1.5cm + var(--safe-area-horizontal));\n\tbottom: 1.5cm;\n}\n\n.touch-controls-ui > .right-container {\n\tposition: absolute;\n\tright: calc(1.5cm + var(--safe-area-horizontal));\n\tbottom: 1.5cm;\n}\n.touch-controls-ui > div.steering > div {\n\tdisplay: inline-block;\n}\n\n.touch-controls-ui > div > div {\n\tmargin: 10px;\n\tpadding: 0;\n\twidth: 160px;\n\theight: 160px;\n\tbackground-color: var(--button-color);\n\topacity: 0.5;\n\tpointer-events: auto;\n\ttouch-action: none;\n}\n.touch-controls-ui > div > div.active {\n\tbackground-color: var(--button-active-color);\n\topacity: 0.6;\n}\n\n.touch-controls-ui > div > div > img {\n\tmargin: 0;\n\tpadding: 40px;\n\tvertical-align: top;\n\twidth: 100%;\n    height: 100%;\n\tbox-sizing: border-box;\n\tpointer-events: none;\n}\n.touch-controls-ui > div > div.active > img {\n    padding: 50px;\n}\n`, ""]);
+export const A = h;

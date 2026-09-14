@@ -1,0 +1,6 @@
+var i = require("./1601.js");
+var r = i;
+var a = require("./6314.js");
+var s = a(r);
+s.push([module.id, ".pause-screen-ui {\n\tposition: fixed;\n\ttop: 0;\n\tleft: 0;\n\twidth: 100%;\n\theight: 100%;\n\tbackground-color: rgba(0, 0, 0, 0.75);\n\tanimation: pause-screen-ui-fade-in 0.25s forwards;\n}\n.pause-screen-ui.fade-out {\n\topacity: 0;\n\ttransition: opacity 0.25s;\n}\n\n@keyframes pause-screen-ui-fade-in {\n\tfrom {\n\t\tbackground-color: rgba(0, 0, 0, 0);\n\t}\n\tto {\n\t\tbackground-color: rgba(0, 0, 0, 0.75);\n\t}\n}\n\n\n.pause-screen-ui > .title {\n\tposition: absolute;\n\ttop: 40%;\n\tleft: 50%;\n\ttransform: translate(-50%, -50%);\n\tfont-size: 100px;\n\tcolor: var(--text-color);\n\tanimation: pause-screen-ui-slide-fade-in 0.5s 0.3s forwards;\n\topacity: 0;\n}\n\n@keyframes pause-screen-ui-slide-fade-in {\n\tfrom {\n\t\ttransform: translate(-60%, -50%);\n\t\topacity: 0;\n\t}\n\tto {\n\t\ttransform: translate(-50%, -50%);\n\t\topacity: 1;\n\t}\n}\n", ""]);
+export const A = s;

@@ -1,0 +1,1 @@
+module.exports = require.p + "images/rotation_axis_y_positive.svg";

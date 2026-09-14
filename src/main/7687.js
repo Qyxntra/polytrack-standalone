@@ -1,0 +1,6 @@
+var i = require("./1601.js");
+var r = i;
+var a = require("./6314.js");
+var s = a(r);
+s.push([module.id, ".track-export-ui.hidden {\n\tdisplay: none;\n}\n\n.track-export-ui > .background {\n\tposition: absolute;\n\tleft: 0;\n\ttop: 0;\n\tz-index: 1;\n\twidth: 100%;\n\theight: 100%;\n\tbackground-color: rgba(20, 20, 30, 0.5);\n\tpointer-events: auto;\n}\n\n.track-export-ui > .box {\n\tposition: absolute;\n\tleft: calc(50% - 80% / 2);\n\ttop: 0;\n\tz-index: 2;\n\tmargin: 0;\n\tpadding: 10px;\n\tbox-sizing: border-box;\n\twidth: 80%;\n\theight: 100%;\n\tbackground-color: var(--surface-color);\n}\n\n.track-export-ui > .box > .bar {\n\ttext-align: left;\n\tpointer-events: auto;\n}\n.track-export-ui > .box > .bar > .button.right {\n\tfloat: right;\n}\n\n.track-export-ui > .box > textarea {\n\tmargin: 10px 0 0 0;\n\tpadding: 10px;\n\tbox-sizing: border-box;\n\tmin-width: 100%;\n\tmax-width: 100%;\n\tmin-height: calc(100% - 52px - 10px);\n\tmax-height: calc(100% - 52px - 10px);\n\tpointer-events: auto;\n\tbackground-color: var(--surface-tertiary-color);\n\tborder: none;\n\tresize: none;\n\tcolor: var(--text-color);\n\tword-break: break-all;\n\tfont-size: 20px;\n}\n.track-export-ui > .box > textarea:focus-visible {\n\toutline: none;\n}\n", ""]);
+export const A = s;

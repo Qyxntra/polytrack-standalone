@@ -1,0 +1,1 @@
+module.exports = require.p + "images/news_popup.jpg";

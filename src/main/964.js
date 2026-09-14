@@ -1,0 +1,6 @@
+var i = require("./1601.js");
+var r = i;
+var a = require("./6314.js");
+var s = a(r);
+s.push([module.id, ".input-visualizer-ui {\n    position: absolute;\n    left: var(--safe-area-horizontal);\n    bottom: 106px;\n    margin: 20px;\n    padding: 0;\n    --size: 96px;\n    width: calc(var(--size) * 3);\n    height: calc(var(--size) * 2);\n    opacity: 0.9;\n}\n\n.input-visualizer-ui > div {\n    position: absolute;\n    margin: 0;\n    padding: 0;\n    width: var(--size);\n    height: var(--size);\n    background-color: var(--surface-color);\n}\n\n.input-visualizer-ui > .arrow-up {\n    left: var(--size);\n    top: 0;\n}\n\n.input-visualizer-ui > .arrow-right {\n    left: calc(var(--size) * 2);\n    top: var(--size);\n}\n\n.input-visualizer-ui > .arrow-down {\n    left: var(--size);\n    top: var(--size);\n}\n\n.input-visualizer-ui > .arrow-left {\n    left: 0;\n    top: var(--size);\n}\n\n.input-visualizer-ui > div.active {\n    background-color: var(--surface-tertiary-color);\n}\n\n.input-visualizer-ui > div > img {\n    margin: 0;\n    padding: 20px;\n    width: 100%;\n    height: 100%;\n    box-sizing: border-box;\n}\n.input-visualizer-ui > div.active > img {\n    padding: 25px;\n}", ""]);
+export const A = s;

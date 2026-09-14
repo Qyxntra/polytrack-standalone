@@ -1,0 +1,1 @@
+module.exports = require.p + "images/cover512x512.png";

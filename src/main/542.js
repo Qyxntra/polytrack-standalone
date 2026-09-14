@@ -1,0 +1,1 @@
+module.exports = require.p + "images/step_back.svg";

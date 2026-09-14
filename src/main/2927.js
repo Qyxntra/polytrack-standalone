@@ -1,0 +1,6 @@
+var i = require("./1601.js");
+var r = i;
+var a = require("./6314.js");
+var s = a(r);
+s.push([module.id, ".loading-ui {\n\tmargin: 200px 0 0 0;\n\tpadding: 0;\n}\n.loading-ui.fade-out {\n\topacity: 0;\n\ttransition: opacity 0.25s ease-out;\n}\n\n.loading-ui > p {\n\tmargin: 5px;\n\tpadding: 0;\n\tcolor: var(--text-color);\n\tfont-size: 32px;\n}\n\n.loading-ui > div {\n\tmargin: 0 auto;\n\tpadding: 0;\n\twidth: 600px;\n\theight: 50px;\n\tbackground-color: var(--surface-color);\n\tclip-path: polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%);\n\toverflow: hidden;\n}\n\n.loading-ui > div > div {\n\tmargin: 15px 20px;\n\tpadding: 0;\n\twidth: 560px;\n\theight: 20px;\n\tclip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%);\n\tbackground-color: #224;\n\tbox-shadow: inset 0 0 6px #000;\n}\n\n.loading-ui > div > div > div {\n\tmargin: 0;\n\tpadding: 0;\n\twidth: 0;\n\theight: 100%;\n\tclip-path: polygon(2px 0, 100% 0, calc(100% - 2px) 100%, 0 100%);\n\tbackground-color: #fff;\n\tbox-shadow: inset 0 0 6px #000;\n\ttransition: width 0.1s ease-in-out;\n}\n", ""]);
+export const A = s;

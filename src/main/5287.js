@@ -1,0 +1,28 @@
+var i;
+(function (e) {
+  e[e.ImperialUnitsEnabled = 0] = "ImperialUnitsEnabled";
+  e[e.ResetHintEnabled = 1] = "ResetHintEnabled";
+  e[e.GhostCarEnabled = 2] = "GhostCarEnabled";
+  e[e.DefaultCameraMode = 3] = "DefaultCameraMode";
+  e[e.CockpitCameraToggle = 4] = "CockpitCameraToggle";
+  e[e.Checkpoints = 5] = "Checkpoints";
+  e[e.Timer = 6] = "Timer";
+  e[e.Speedometer = 7] = "Speedometer";
+  e[e.Language = 8] = "Language";
+  e[e.ShadowQuality = 9] = "ShadowQuality";
+  e[e.CloudsEnabled = 10] = "CloudsEnabled";
+  e[e.ParticlesEnabled = 11] = "ParticlesEnabled";
+  e[e.SkidmarksEnabled = 12] = "SkidmarksEnabled";
+  e[e.FogEnabled = 13] = "FogEnabled";
+  e[e.RenderScale = 14] = "RenderScale";
+  e[e.ScreenPixelDensity = 15] = "ScreenPixelDensity";
+  e[e.Antialiasing = 16] = "Antialiasing";
+  e[e.MasterVolume = 17] = "MasterVolume";
+  e[e.SoundEffectVolume = 18] = "SoundEffectVolume";
+  e[e.MusicVolume = 19] = "MusicVolume";
+  e[e.CheckpointVolume = 20] = "CheckpointVolume";
+  e[e.GhostCarSoundsEnabled = 21] = "GhostCarSoundsEnabled";
+  e[e.VibrationEnabled = 22] = "VibrationEnabled";
+  e[e.TouchSteeringSide = 23] = "TouchSteeringSide";
+})(i ||= {});
+export const A = i;

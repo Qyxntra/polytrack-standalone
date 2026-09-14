@@ -1,0 +1,1 @@
+module.exports = require.p + "images/reset_settings.svg";
