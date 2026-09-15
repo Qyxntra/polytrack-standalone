@@ -143,7 +143,12 @@ const server = http.createServer((req, res) => {
         res.end('500 Internal Server Error');
         return;
       }
-      res.writeHead(200, { 'Content-Type': contentType });
+      const headers = { 'Content-Type': contentType };
+      if (filePath.endsWith('sw.js')) {
+        headers['Service-Worker-Allowed'] = '/app/';
+        headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      }
+      res.writeHead(200, headers);
       res.end(content);
     });
   });
@@ -169,9 +174,20 @@ wss.on('connection', (ws, req) => {
   const isJoin = parsed.pathname.includes('/multiplayer/join');
   const mode = parsed.query.mode || 'lan';
 
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+  ws.on('error', (err) => {
+    console.warn('[MULTIPLAYER] Client socket error:', err.message);
+  });
+
   // Keep-alive heartbeat ping every 15 seconds
   const pingInterval = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
+      if (ws.isAlive === false) {
+        clearInterval(pingInterval);
+        return ws.terminate();
+      }
+      ws.isAlive = false;
       ws.ping();
     }
   }, 15000);
