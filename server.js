@@ -1,3 +1,4 @@
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -7,6 +8,30 @@ const WebSocket = require('ws');
 
 const PORT = process.env.PORT || 8080;
 const ROOT_DIR = __dirname;
+
+// Persistent Leaderboards & User Data
+const LEADERBOARD_FILE = path.join(ROOT_DIR, 'data', 'leaderboard.json');
+
+function loadLeaderboardDB() {
+  try {
+    if (fs.existsSync(LEADERBOARD_FILE)) {
+      return JSON.parse(fs.readFileSync(LEADERBOARD_FILE, 'utf-8'));
+    }
+  } catch (e) {
+    console.error('[LEADERBOARD] Error reading DB:', e.message);
+  }
+  return { records: {}, users: {}, nextRecordId: 100 };
+}
+
+function saveLeaderboardDB(db) {
+  try {
+    fs.writeFileSync(LEADERBOARD_FILE, JSON.stringify(db, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('[LEADERBOARD] Error writing DB:', e.message);
+  }
+}
+
+let lbDB = loadLeaderboardDB();
 
 function getLocalIp() {
   const nets = os.networkInterfaces();
@@ -107,16 +132,140 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname.includes('leaderboardUserEntry')) {
-      res.end(JSON.stringify({ position: 1, time: 0, id: 'local_user' }));
-    } else if (pathname.includes('leaderboard')) {
-      res.end(JSON.stringify({ total: 0, entries: [], userEntry: null }));
-    } else if (pathname.includes('user')) {
-      res.end(JSON.stringify({ nickname: 'Player', countryCode: null, carStyle: '000000', isVerifier: false }));
-    } else if (pathname.includes('recordings')) {
-      res.end('[]');
-    } else {
-      res.end('{"status":"ok"}');
+      const trackId = parsedUrl.query.trackId;
+      const userHash = parsedUrl.query.userTokenHash;
+      const trackRecords = lbDB.records[trackId] || [];
+      const userIdx = trackRecords.findIndex(r => r.userId === userHash);
+      if (userIdx >= 0) {
+        const entry = trackRecords[userIdx];
+        res.end(JSON.stringify({
+          position: userIdx + 1,
+          frames: entry.frames,
+          id: entry.id
+        }));
+      } else {
+        res.end('null');
+      }
+      return;
     }
+
+    if (pathname.includes('leaderboard') && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const params = new URLSearchParams(body);
+          const trackId = params.get('trackId');
+          const frames = parseInt(params.get('frames'), 10);
+          const userToken = params.get('userToken') || 'anon';
+          const nickname = params.get('nickname') || 'Player';
+          const countryCode = params.get('countryCode') || null;
+          const carStyle = params.get('carStyle') || '000000';
+          const recording = params.get('recording') || '';
+
+          if (!lbDB.records[trackId]) {
+            lbDB.records[trackId] = [];
+          }
+
+          const recId = lbDB.nextRecordId++;
+          const newEntry = {
+            id: recId,
+            userId: userToken,
+            nickname: nickname,
+            countryCode: countryCode,
+            frames: frames,
+            time: new Date().toISOString(),
+            carStyle: carStyle,
+            verifiedState: 1,
+            recording: recording
+          };
+
+          // Update or insert player's best time
+          const existingIdx = lbDB.records[trackId].findIndex(r => r.userId === userToken);
+          if (existingIdx >= 0) {
+            if (frames < lbDB.records[trackId][existingIdx].frames) {
+              lbDB.records[trackId][existingIdx] = newEntry;
+            }
+          } else {
+            lbDB.records[trackId].push(newEntry);
+          }
+
+          lbDB.records[trackId].sort((a, b) => a.frames - b.frames);
+          saveLeaderboardDB(lbDB);
+
+          console.log(`[LEADERBOARD] New record on track ${trackId.substring(0, 8)}...: ${nickname} (${frames} frames)`);
+          res.end(JSON.stringify({ uploadId: recId, positionChange: 0 }));
+        } catch (e) {
+          console.error('[LEADERBOARD] Submit error:', e);
+          res.writeHead(500);
+          res.end('{"error":"Failed to submit"}');
+        }
+      });
+      return;
+    }
+
+    if (pathname.includes('leaderboard')) {
+      const trackId = parsedUrl.query.trackId;
+      const skip = parseInt(parsedUrl.query.skip, 10) || 0;
+      const amount = parseInt(parsedUrl.query.amount, 10) || 10;
+      const userHash = parsedUrl.query.userTokenHash;
+
+      const trackRecords = lbDB.records[trackId] || [];
+      const userIdx = trackRecords.findIndex(r => r.userId === userHash);
+
+      const pageEntries = trackRecords.slice(skip, skip + amount).map(r => ({
+        id: r.id,
+        userId: r.userId,
+        nickname: r.nickname,
+        countryCode: r.countryCode,
+        frames: r.frames,
+        time: r.time,
+        carStyle: r.carStyle,
+        verifiedState: r.verifiedState || 1
+      }));
+
+      const userEntry = userIdx >= 0 ? {
+        position: userIdx + 1,
+        frames: trackRecords[userIdx].frames,
+        id: trackRecords[userIdx].id
+      } : null;
+
+      res.end(JSON.stringify({
+        total: trackRecords.length,
+        entries: pageEntries,
+        userEntry: userEntry
+      }));
+      return;
+    }
+
+    if (pathname.includes('recordings')) {
+      const idsStr = parsedUrl.query.ids || '';
+      const reqIds = idsStr.split(',').map(s => parseInt(s, 10));
+      const results = [];
+
+      for (const tid of Object.keys(lbDB.records)) {
+        for (const rec of lbDB.records[tid]) {
+          if (reqIds.includes(rec.id)) {
+            results.push({
+              recording: rec.recording || '',
+              time: rec.frames,
+              frames: rec.frames,
+              verifiedState: rec.verifiedState || 1,
+              carStyle: rec.carStyle || '000000'
+            });
+          }
+        }
+      }
+      res.end(JSON.stringify(results));
+      return;
+    }
+
+    if (pathname.includes('user')) {
+      res.end(JSON.stringify({ nickname: 'Player', countryCode: null, carStyle: '000000', isVerifier: false }));
+      return;
+    }
+
+    res.end('{"status":"ok"}');
     return;
   }
 

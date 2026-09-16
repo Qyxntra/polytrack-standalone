@@ -1,5 +1,5 @@
 // PolyTrack Standalone Service Worker (Offline & PWA Cache)
-const CACHE_NAME = 'polytrack-standalone-v1';
+const CACHE_NAME = 'polytrack-standalone-v2';
 
 const PRECACHE_ASSETS = [
   './',
@@ -29,7 +29,13 @@ const PRECACHE_ASSETS = [
   './models/wall_track.glb',
   './images/logo.svg',
   './images/discord.svg',
-  './images/smoke.png'
+  './images/smoke.png',
+  './tracks/community/qxyntra_gp.track',
+  './tracks/community/qxyntra_dunes.track',
+  './tracks/community/qxyntra_alpine.track',
+  './tracks/community/thumbnails/qxyntra_gp.png',
+  './tracks/community/thumbnails/qxyntra_dunes.png',
+  './tracks/community/thumbnails/qxyntra_alpine.png'
 ];
 
 self.addEventListener('install', (event) => {

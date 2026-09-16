@@ -1,0 +1,67 @@
+{
+  "records": {
+    "87e9a1ec056952dfe0c40e403f951ed0d141da731d8fc079b4abd9dc76d99ba7": [
+      {
+        "id": 1,
+        "userId": "usr_qxyntra_creator",
+        "nickname": "Qxyntra 👑",
+        "countryCode": "FR",
+        "frames": 1380,
+        "time": "2026-09-16T18:00:00.000Z",
+        "carStyle": "000000",
+        "verifiedState": 1,
+        "recording": ""
+      },
+      {
+        "id": 10,
+        "userId": "test_player_token_123",
+        "nickname": "PolyChamp",
+        "countryCode": "FR",
+        "frames": 1420,
+        "time": "2026-09-16T18:09:10.273Z",
+        "carStyle": "000000",
+        "verifiedState": 1,
+        "recording": ""
+      },
+      {
+        "id": 2,
+        "userId": "usr_speedy_racer",
+        "nickname": "ApexDrifter",
+        "countryCode": "US",
+        "frames": 1495,
+        "time": "2026-09-16T18:15:00.000Z",
+        "carStyle": "010203",
+        "verifiedState": 1,
+        "recording": ""
+      }
+    ],
+    "a1ed02a4c1ea785c01581d09a831d483ba5236ba6ff10a8ff83ff1e08103fa2e": [
+      {
+        "id": 3,
+        "userId": "usr_qxyntra_creator",
+        "nickname": "Qxyntra 👑",
+        "countryCode": "FR",
+        "frames": 1540,
+        "time": "2026-09-16T18:05:00.000Z",
+        "carStyle": "000000",
+        "verifiedState": 1,
+        "recording": ""
+      }
+    ],
+    "06a6ffd69d46391c8a3561cc938c474f762d72a9b9bae4a934ed99c07c45c104": [
+      {
+        "id": 4,
+        "userId": "usr_qxyntra_creator",
+        "nickname": "Qxyntra 👑",
+        "countryCode": "FR",
+        "frames": 1620,
+        "time": "2026-09-16T18:10:00.000Z",
+        "carStyle": "000000",
+        "verifiedState": 1,
+        "recording": ""
+      }
+    ]
+  },
+  "users": {},
+  "nextRecordId": 11
+}
