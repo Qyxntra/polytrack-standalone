@@ -24,6 +24,7 @@
 - **78 Circuits Officiels & Communautaires** : Tous les circuits .track et leurs vignettes de prévisualisation sont embarqués en local.
 - **Physique WebAssembly Haute Performance** : Moteur polytrack_physics.wasm et worker multithreadé dédié.
 - **Décodeurs Draco 3D Intégrés** : Rendu optimal des maillages compressés Google Draco en local.
+- **Optimisation PC Basse Gamme (60+ FPS)** : Détection matérielle automatique des GPU d'entrée de gamme (Intel HD, Iris, Mali, netbooks, etc.) pour un framerate maximal. Bouton 1-clic `⚡ Mode Performance (60 FPS)` directement intégré dans le menu Paramètres.
 
 ---
 
