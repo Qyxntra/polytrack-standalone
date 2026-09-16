@@ -103,6 +103,25 @@ const server = http.createServer((req, res) => {
   if (pathname.startsWith('/api/')) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
 
+    if (pathname.includes('lan/rooms') || pathname.includes('rooms')) {
+      const roomList = [];
+      for (const [code, r] of rooms.entries()) {
+        if (r.hostWs && r.hostWs.readyState === WebSocket.OPEN) {
+          roomList.push({
+            code: code,
+            host: r.hostNickname || 'Hôte',
+            track: r.trackName || 'Circuit',
+            mode: r.gameMode || 'Casual',
+            netMode: r.mode || 'lan',
+            players: `${r.clients.size + 1}/${r.maxPlayers || 8}`,
+            createdAt: r.createdAt
+          });
+        }
+      }
+      res.end(JSON.stringify({ rooms: roomList }));
+      return;
+    }
+
     if (pathname.includes('networkInfo')) {
       res.end(JSON.stringify({
         localIp: LOCAL_IP,
@@ -329,17 +348,14 @@ wss.on('connection', (ws, req) => {
     console.warn('[MULTIPLAYER] Client socket error:', err.message);
   });
 
-  // Keep-alive heartbeat ping every 15 seconds
+  // Safe application-level JSON heartbeat every 10 seconds to keep client active and prevent 35s client timeout
   const pingInterval = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
-      if (ws.isAlive === false) {
-        clearInterval(pingInterval);
-        return ws.terminate();
-      }
-      ws.isAlive = false;
-      ws.ping();
+      try {
+        ws.send(JSON.stringify({ type: 'heartbeat' }));
+      } catch (e) {}
     }
-  }, 15000);
+  }, 10000);
 
   ws.on('close', () => clearInterval(pingInterval));
 
@@ -362,7 +378,9 @@ function handleHost(ws, mode) {
     }
 
     if (msg.type === 'createInvite') {
-      hostRoomCode = generateCode(mode);
+      if (!hostRoomCode || !rooms.has(hostRoomCode)) {
+        hostRoomCode = generateCode(mode);
+      }
       const sessionKey = 'key_' + Math.random().toString(36).substring(2, 10);
 
       rooms.set(hostRoomCode, {
@@ -370,10 +388,14 @@ function handleHost(ws, mode) {
         key: sessionKey,
         clients: new Map(),
         mode: mode,
+        hostNickname: msg.nickname || 'Player',
+        trackName: msg.trackName || 'Circuit',
+        gameMode: msg.gameMode || 'Casual',
+        maxPlayers: 8,
         createdAt: Date.now()
       });
 
-      console.log(`[MULTIPLAYER] Host created room ${hostRoomCode} (${mode.toUpperCase()})`);
+      console.log(`[MULTIPLAYER] Host created room ${hostRoomCode} (${mode.toUpperCase()}) - Host: ${msg.nickname || 'Player'}, Track: ${msg.trackName || 'Circuit'}`);
 
       ws.send(JSON.stringify({
         type: 'createInvite',
