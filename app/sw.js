@@ -1,9 +1,10 @@
 // PolyTrack Standalone Service Worker (Offline & PWA Cache)
-const CACHE_NAME = 'polytrack-standalone-v2';
+const CACHE_NAME = 'polytrack-standalone-v3';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
+  './static_adapter.js',
   './main.bundle.js',
   './simulation_worker.bundle.js',
   './error_screen.bundle.js',
