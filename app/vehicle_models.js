@@ -41,7 +41,10 @@
     playSelect: function() {
       try {
         this.init();
-        if (!this.ctx || this.ctx.state === 'suspended') return;
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
@@ -728,6 +731,7 @@
 
   function applyWheelVisibility(carInstance, l, xe, ye, vType) {
     if (!carInstance || !xe) return;
+    vType = vType || window._selectedVehicleType || getSelectedVehicleType();
     try {
       const wheels = (0, l.gn)(carInstance, xe, "f");
       if (Array.isArray(wheels)) {
