@@ -1,5 +1,5 @@
 // PolyTrack Standalone Service Worker (Offline & PWA Cache)
-const CACHE_NAME = 'polytrack-standalone-v5';
+const CACHE_NAME = 'polytrack-standalone-v6';
 
 const PRECACHE_ASSETS = [
   './',
@@ -69,35 +69,42 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const isCode = url.pathname.endsWith('.html') || url.pathname.endsWith('.js') || url.pathname.endsWith('.bundle.js') || url.pathname.endsWith('/');
+
+  // Network-First for HTML and JavaScript bundles (so updates are instant online, but works offline)
+  if (isCode) {
+    event.respondWith(
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const toCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, toCache));
+        }
+        return networkResponse;
+      }).catch(() => {
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          if (url.pathname.endsWith('/') || url.pathname.endsWith('.html')) {
+            return caches.match('./index.html');
+          }
+        });
+      })
+    );
+    return;
+  }
+
+  // Cache-First for static assets (images, 3D models, wasm, fonts, audio)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Return cached asset immediately, but update in background for HTML/JS
-        if (url.pathname.endsWith('.html') || url.pathname.endsWith('.bundle.js')) {
-          fetch(event.request).then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
-            }
-          }).catch(() => {});
-        }
-        return cachedResponse;
-      }
-
-      // Network fallback + cache runtime assets (tracks, flags, audio, etc.)
+      if (cachedResponse) return cachedResponse;
       return fetch(event.request).then((networkResponse) => {
         if (!networkResponse || networkResponse.status !== 200 || networkResponse.type === 'opaque') {
           return networkResponse;
         }
-
         const responseToCache = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseToCache);
         });
-
         return networkResponse;
-      }).catch((err) => {
-        console.warn('[SW] Fetch failed for:', event.request.url, err);
-        throw err;
       });
     })
   );

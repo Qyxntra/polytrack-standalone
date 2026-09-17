@@ -658,6 +658,80 @@
   }
 
   // --- 7. EXPORT MODULE ---
+  
+  // --- 7. AUTO-GARAGE DOM WATCHER & TAB INJECTOR ---
+  function setupGarageWatcher() {
+    function checkGarageUI() {
+      const panelUI = document.querySelector('.customization-panel-ui');
+      if (!panelUI) return;
+
+      const tabBar = panelUI.querySelector('.tab-bar');
+      if (!tabBar) return;
+
+      let vPanel = panelUI.querySelector('.vehicle-options-panel');
+      if (!vPanel) {
+        vPanel = createGarageVehiclePanel(null, panelUI);
+      }
+
+      let vehicleBtn = tabBar.querySelector('.vehicle-tab-btn');
+      if (!vehicleBtn) {
+        const existingButtons = Array.from(tabBar.querySelectorAll('.button'));
+        const found = existingButtons.find(b => b.textContent && (b.textContent.includes('Véhicule') || b.textContent.includes('Skins')));
+        if (found) {
+          vehicleBtn = found;
+          vehicleBtn.classList.add('vehicle-tab-btn');
+        } else {
+          vehicleBtn = document.createElement('button');
+          vehicleBtn.className = 'button vehicle-tab-btn';
+          vehicleBtn.type = 'button';
+          vehicleBtn.innerHTML = 'Skins / Véhicules <img class="button-icon" src="images/vehicles_tab.svg" alt="">';
+          tabBar.appendChild(vehicleBtn);
+        }
+      }
+
+      if (vehicleBtn && !vehicleBtn.dataset.wired) {
+        vehicleBtn.dataset.wired = 'true';
+
+        vehicleBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          tabBar.querySelectorAll('.button').forEach(b => b.classList.remove('selected'));
+          vehicleBtn.classList.add('selected');
+
+          Array.from(panelUI.children).forEach(child => {
+            if (child !== tabBar && child.classList) {
+              child.classList.add('hidden');
+            }
+          });
+
+          vPanel.classList.remove('hidden');
+          vPanel.style.display = 'flex';
+          refreshGaragePanelSelection();
+        });
+
+        tabBar.querySelectorAll('.button').forEach(b => {
+          if (b !== vehicleBtn && !b.dataset.vehicleWired) {
+            b.dataset.vehicleWired = 'true';
+            b.addEventListener('click', () => {
+              if (vehicleBtn) vehicleBtn.classList.remove('selected');
+              if (vPanel) {
+                vPanel.classList.add('hidden');
+                vPanel.style.display = 'none';
+              }
+            });
+          }
+        });
+      }
+    }
+
+    checkGarageUI();
+    setInterval(checkGarageUI, 350);
+
+    if (typeof MutationObserver !== 'undefined' && document.body) {
+      const observer = new MutationObserver(checkGarageUI);
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
   window.PolyTrackVehicles = {
     VEHICLES,
     getSelectedVehicleType,
@@ -670,9 +744,11 @@
     buildVanGeometry,
     buildPlaneGeometry,
     createGarageVehiclePanel,
-    refreshGaragePanelSelection
+    refreshGaragePanelSelection,
+    setupGarageWatcher
   };
 
   window._selectedVehicleType = getSelectedVehicleType();
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', setupGarageWatcher); } else { setupGarageWatcher(); }
   console.log('[PolyTrack] Vehicle Models & Powers Engine Loaded. Active Vehicle:', window._selectedVehicleType);
 })();
