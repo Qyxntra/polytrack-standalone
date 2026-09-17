@@ -760,81 +760,110 @@
   }
 
   function changeVehicleChassis(carInstance, vType, THREE, l, B, be, me, D, Oe, we, xe, ye) {
-    setSelectedVehicleType(vType);
-    window._selectedVehicleType = vType;
-
-    const oldMesh = (0, l.gn)(carInstance, be, "f");
-    const carGroup = (0, l.gn)(carInstance, me, "f");
-    if (!oldMesh || !carGroup) return;
-
-    // 1. Capture the existing matrix so the new mesh NEVER drops to (0,0,0) under the floor!
-    const oldMatrix = oldMesh.matrix ? oldMesh.matrix.clone() : null;
-
-    carGroup.remove(oldMesh);
-    const newMesh = createVehicleChassis(B, THREE);
-    newMesh.matrixAutoUpdate = false;
-
-    // 2. Immediately inherit transform from previous mesh
-    if (oldMatrix) {
-      newMesh.matrix.copy(oldMatrix);
-    }
-
     try {
-      if (be) {
-        (0, l.GG)(carInstance, be, newMesh, "f");
-      }
-    } catch (e) {
-      console.warn('[PolyTrack] Error setting chassis mesh field be:', e);
-    }
+      setSelectedVehicleType(vType);
+      window._selectedVehicleType = vType;
 
-    if (D && Oe && typeof Oe === 'function') {
+      if (!carInstance || !l) return;
+
+      let oldMesh = null;
+      let carGroup = null;
+
       try {
-        (0, l.gn)(carInstance, D, "m", Oe).call(carInstance, newMesh);
+        if (be) oldMesh = (0, l.gn)(carInstance, be, "f");
       } catch (e) {
-        console.warn('[PolyTrack] Method Oe error:', e);
+        console.warn('[PolyTrack] Safe warning: get oldMesh:', e);
       }
-    }
 
-    carGroup.add(newMesh);
+      try {
+        if (me) carGroup = (0, l.gn)(carInstance, me, "f");
+      } catch (e) {
+        console.warn('[PolyTrack] Safe warning: get carGroup:', e);
+      }
 
-    // 3. Compute exact matrix from carInstance position & quaternion
-    try {
-      if (typeof carInstance.getMatrix4 === 'function') {
-        const mat = carInstance.getMatrix4();
-        if (mat) {
-          newMesh.matrix.copy(mat);
-          const massOffset = (B && B.massOffset !== undefined) ? B.massOffset : 0.6;
-          const Kn4Class = THREE && (THREE.Matrix4 || THREE.kn4 || (mat && mat.constructor));
-          if (Kn4Class) {
-            newMesh.matrix.multiply(new Kn4Class().makeTranslation(0, massOffset, 0));
-          }
+      if (!carGroup) return;
+
+      // 1. Capture the existing matrix so the new mesh NEVER drops to (0,0,0) under the floor!
+      const oldMatrix = (oldMesh && oldMesh.matrix) ? oldMesh.matrix.clone() : null;
+
+      if (oldMesh) {
+        try {
+          carGroup.remove(oldMesh);
+        } catch (e) {}
+      }
+
+      const newMesh = createVehicleChassis(B, THREE);
+      if (!newMesh) return;
+      newMesh.matrixAutoUpdate = false;
+
+      // 2. Immediately inherit transform from previous mesh
+      if (oldMatrix) {
+        newMesh.matrix.copy(oldMatrix);
+      }
+
+      try {
+        if (be) {
+          (0, l.GG)(carInstance, be, newMesh, "f");
+        }
+      } catch (e) {
+        console.warn('[PolyTrack] Safe warning: set chassis mesh field be:', e);
+      }
+
+      if (D && Oe && typeof Oe === 'function') {
+        try {
+          (0, l.gn)(carInstance, D, "m", Oe).call(carInstance, newMesh);
+        } catch (e) {
+          console.warn('[PolyTrack] Safe warning: Method Oe:', e);
         }
       }
-    } catch (e) {
-      console.warn('[PolyTrack] Matrix calculation error:', e);
-    }
 
-    // 4. Trigger carInstance.update(0) to update wheels, suspension and chassis matrix
-    if (typeof carInstance.update === 'function') {
       try {
-        carInstance.update(0);
+        carGroup.add(newMesh);
+      } catch (e) {}
+
+      // 3. Compute exact matrix from carInstance position & quaternion
+      try {
+        if (typeof carInstance.getMatrix4 === 'function') {
+          const mat = carInstance.getMatrix4();
+          if (mat) {
+            newMesh.matrix.copy(mat);
+            const massOffset = (B && B.massOffset !== undefined) ? B.massOffset : 0.6;
+            const Kn4Class = THREE && (THREE.Matrix4 || THREE.kn4 || (mat && mat.constructor));
+            if (Kn4Class) {
+              newMesh.matrix.multiply(new Kn4Class().makeTranslation(0, massOffset, 0));
+            }
+          }
+        }
       } catch (e) {
-        console.warn('[PolyTrack] carInstance.update error:', e);
+        console.warn('[PolyTrack] Matrix calculation error:', e);
       }
+
+      // 4. Trigger carInstance.update(0) to update wheels, suspension and chassis matrix
+      if (typeof carInstance.update === 'function') {
+        try {
+          carInstance.update(0);
+        } catch (e) {
+          console.warn('[PolyTrack] carInstance.update error:', e);
+        }
+      }
+
+      // 5. Apply wheel and suspension visibility
+      try {
+        applyWheelVisibility(carInstance, l, xe, ye, vType);
+      } catch (e) {}
+
+      // 6. Refresh colors on new mesh from car style
+      try {
+        const style = carInstance.getCarStyle && carInstance.getCarStyle();
+        if (style) {
+          carInstance.setCarStyle(style);
+        }
+      } catch (e) {}
+
+      console.log('[PolyTrack] Vehicle morphed to:', vType);
+    } catch (outerErr) {
+      console.error('[PolyTrack] changeVehicleChassis recovered safely:', outerErr);
     }
-
-    // 5. Apply wheel and suspension visibility
-    applyWheelVisibility(carInstance, l, xe, ye, vType);
-
-    // 6. Refresh colors on new mesh from car style
-    try {
-      const style = carInstance.getCarStyle && carInstance.getCarStyle();
-      if (style) {
-        carInstance.setCarStyle(style);
-      }
-    } catch (e) {}
-
-    console.log('[PolyTrack] Vehicle morphed to:', vType);
   }
 
   // --- 5. POWER LOGIC & IN-GAME ESPORTS TELEMETRY HUD ---
@@ -1316,15 +1345,19 @@
       });
 
       card.addEventListener('click', () => {
-        AudioFX.playSelect();
-        if (soundEngine && soundEngine.playUIClick) soundEngine.playUIClick();
-        setSelectedVehicleType(v.id);
-        refreshGaragePanelSelection();
-        if (window._garageCarInstance && window._garageCarInstance.setVehicleType) {
-          window._garageCarInstance.setVehicleType(v.id);
-        }
-        if (window._currentCarInstance && window._currentCarInstance.setVehicleType) {
-          window._currentCarInstance.setVehicleType(v.id);
+        try {
+          AudioFX.playSelect();
+          if (soundEngine && soundEngine.playUIClick) soundEngine.playUIClick();
+          setSelectedVehicleType(v.id);
+          refreshGaragePanelSelection();
+          if (window._garageCarInstance && window._garageCarInstance.setVehicleType) {
+            window._garageCarInstance.setVehicleType(v.id);
+          }
+          if (window._currentCarInstance && window._currentCarInstance.setVehicleType) {
+            window._currentCarInstance.setVehicleType(v.id);
+          }
+        } catch (e) {
+          console.warn('[PolyTrack] Vehicle selection click error:', e);
         }
       });
 

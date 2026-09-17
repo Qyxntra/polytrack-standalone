@@ -1,5 +1,5 @@
 // PolyTrack Standalone Service Worker (Offline & PWA Cache)
-const CACHE_NAME = 'polytrack-standalone-v12';
+const CACHE_NAME = 'polytrack-standalone-v13';
 
 const PRECACHE_ASSETS = [
   './',
@@ -74,7 +74,7 @@ self.addEventListener('fetch', (event) => {
   // Network-First for HTML and JavaScript bundles (so updates are instant online, but works offline)
   if (isCode) {
     event.respondWith(
-      fetch(event.request).then((networkResponse) => {
+      fetch(event.request, { cache: 'no-store' }).then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200) {
           const toCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, toCache));
