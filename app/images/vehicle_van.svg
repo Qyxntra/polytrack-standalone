@@ -1,80 +1,84 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" fill="#000000"/>
+
   <defs>
     <linearGradient id="van_body" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fbbf24" />
-      <stop offset="50%" stop-color="#f59e0b" />
-      <stop offset="100%" stop-color="#d97706" />
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="25%" stop-color="#fbbf24"/>
+      <stop offset="70%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#b45309"/>
     </linearGradient>
     <linearGradient id="van_tire" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#1e293b" />
-      <stop offset="100%" stop-color="#020617" />
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#020617"/>
     </linearGradient>
-    <filter id="shadow_van" x="-10%" y="-10%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.6" />
-    </filter>
   </defs>
 
-  <g filter="url(#shadow_van)">
-    <!-- Ground Shadow -->
-    <ellipse cx="64" cy="100" rx="46" ry="13" fill="#000000" opacity="0.38" />
+  <!-- Big Rear Left Wheel (back layer) -->
+  <ellipse cx="88" cy="60" rx="10" ry="18" fill="#020617"/>
+  <ellipse cx="88" cy="60" rx="5.5" ry="10" fill="#334155"/>
 
-    <!-- Rear Left Big Wheel (back) -->
-    <ellipse cx="88" cy="62" rx="9" ry="16" fill="#020617" />
-    <ellipse cx="88" cy="62" rx="5" ry="9" fill="#334155" />
+  <!-- Tubular Bed Rollcage (Back) -->
+  <polygon points="76,44 104,50 102,57 74,51" fill="#1e293b"/>
+  <!-- Full Spare Wheel Strapped in Bed at 45° -->
+  <ellipse cx="90" cy="52" rx="7" ry="13" fill="#0f172a" transform="rotate(-30 90 52)"/>
+  <ellipse cx="90" cy="52" rx="4" ry="7.5" fill="#f59e0b" transform="rotate(-30 90 52)"/>
+  <circle cx="90" cy="52" r="2" fill="#020617" transform="rotate(-30 90 52)"/>
+  <!-- Red Tie-down Y-Strap -->
+  <line x1="85" y1="46" x2="90" y2="52" stroke="#ef4444" stroke-width="1.8"/>
+  <line x1="95" y1="48" x2="90" y2="52" stroke="#ef4444" stroke-width="1.8"/>
+  <line x1="90" y1="52" x2="92" y2="59" stroke="#ef4444" stroke-width="1.8"/>
 
-    <!-- Bed Rollcage & Spare Tire (Back) -->
-    <polygon points="76,46 102,52 100,58 74,52" fill="#1e293b" />
-    <!-- Spare Wheel in Bed tilted 45 deg -->
-    <ellipse cx="90" cy="54" rx="6" ry="11" fill="#0f172a" transform="rotate(-30 90 54)" />
-    <ellipse cx="90" cy="54" rx="3.5" ry="6" fill="#f59e0b" transform="rotate(-30 90 54)" />
+  <!-- Big Front Left Wheel (back layer) -->
+  <ellipse cx="34" cy="72" rx="9" ry="16" fill="#020617"/>
+  <ellipse cx="34" cy="72" rx="5" ry="9" fill="#334155"/>
 
-    <!-- Front Left Wheel (back) -->
-    <ellipse cx="36" cy="74" rx="8" ry="14" fill="#020617" />
+  <!-- Expedition Roof Rack & 4 Round Rally Spotlights -->
+  <polygon points="50,36 74,36 72,40 48,40" fill="#0f172a"/>
+  <!-- 4 Round LED KC Spotlights -->
+  <circle cx="51" cy="36" r="3.6" fill="#fef08a" stroke="#0f172a" stroke-width="1.2"/>
+  <circle cx="58" cy="36" r="3.6" fill="#fef08a" stroke="#0f172a" stroke-width="1.2"/>
+  <circle cx="65" cy="36" r="3.6" fill="#fef08a" stroke="#0f172a" stroke-width="1.2"/>
+  <circle cx="72" cy="36" r="3.6" fill="#fef08a" stroke="#0f172a" stroke-width="1.2"/>
 
-    <!-- Roof Expedition Rack & 4 Round Rally Lights -->
-    <polygon points="52,38 74,38 72,42 50,42" fill="#0f172a" />
-    <!-- 4 Round Spotlights -->
-    <circle cx="53" cy="38" r="3.2" fill="#fef08a" stroke="#0f172a" stroke-width="1" />
-    <circle cx="59" cy="38" r="3.2" fill="#fef08a" stroke="#0f172a" stroke-width="1" />
-    <circle cx="65" cy="38" r="3.2" fill="#fef08a" stroke="#0f172a" stroke-width="1" />
-    <circle cx="71" cy="38" r="3.2" fill="#fef08a" stroke="#0f172a" stroke-width="1" />
+  <!-- Heavy Truck Body (Cab & Bed) -->
+  <polygon points="18,85 40,90 86,76 108,71 108,53 78,53 74,40 48,40 32,58 18,66" fill="url(#van_body)"/>
+  
+  <!-- Hood & Aggressive Front Cowl -->
+  <polygon points="18,66 32,58 48,62 36,82 18,85" fill="#fbbf24"/>
+  <polygon points="18,66 32,58 46,60 28,68" fill="#fef08a"/> <!-- Hood top highlight -->
+  <!-- Power Bulge / Hood Intake -->
+  <polygon points="26,65 36,63 38,67 28,70" fill="#0f172a"/>
 
-    <!-- Main Truck Body (Cab & Bed) -->
-    <polygon points="20,86 42,91 86,78 106,73 106,56 78,56 74,42 50,42 34,60 20,68" fill="url(#van_body)" />
-    
-    <!-- Heavy Hood & Grill -->
-    <polygon points="20,68 34,60 48,64 36,83 20,86" fill="#fbbf24" />
-    <!-- Hood Scoop -->
-    <polygon points="28,67 36,65 38,69 30,71" fill="#0f172a" />
+  <!-- Cab Glass & Sun Visor -->
+  <polygon points="34,58 48,41 72,41 74,52 46,56" fill="#0f172a"/>
+  <polygon points="48,41 72,41 76,45 50,45" fill="#f59e0b"/> <!-- Visor -->
+  <!-- Side Door Window -->
+  <polygon points="50,45 70,45 72,53 48,55" fill="#475569" opacity="0.8"/>
 
-    <!-- Cab Windshield & Windows -->
-    <polygon points="36,60 50,43 72,43 74,54 48,58" fill="#0f172a" />
-    <polygon points="50,43 72,43 76,47 52,47" fill="#fbbf24" /> <!-- Roof visor -->
-    <!-- Side Window -->
-    <polygon points="52,47 70,47 72,55 50,57" fill="#334155" opacity="0.8" />
+  <!-- Heavy Steel Bullbar & Winch Guard -->
+  <polygon points="10,78 20,76 24,87 16,90" fill="#1e293b"/>
+  <polygon points="8,83 14,81 16,93 10,95" fill="#0f172a"/>
+  <!-- Twin Square LED Projectors -->
+  <rect x="20" y="73" width="6" height="5" fill="#fef08a" stroke="#0f172a" stroke-width="0.8" transform="skewY(12)"/>
+  <!-- Red Tow Hooks -->
+  <circle cx="16" cy="92" r="2" fill="#ef4444"/>
 
-    <!-- Heavy Offroad Bullbar & Skidplate -->
-    <polygon points="14,80 22,78 26,88 18,91" fill="#1e293b" />
-    <polygon points="12,85 16,83 18,94 14,96" fill="#0f172a" /> <!-- Lower pushbar -->
-    <!-- Headlights -->
-    <rect x="22" y="74" width="5" height="5" fill="#fef08a" transform="skewY(10)" />
+  <!-- Massive Front Right Wheel (foreground) -->
+  <ellipse cx="44" cy="89" rx="11" ry="19" fill="url(#van_tire)"/>
+  <ellipse cx="44" cy="89" rx="6.5" ry="11" fill="#475569"/>
+  <circle cx="44" cy="89" r="3" fill="#f59e0b"/>
+  <!-- Knobby Deep Treads -->
+  <line x1="35" y1="82" x2="39" y2="85" stroke="#64748b" stroke-width="2"/>
+  <line x1="33" y1="91" x2="38" y2="91" stroke="#64748b" stroke-width="2"/>
+  <line x1="35" y1="99" x2="40" y2="96" stroke="#64748b" stroke-width="2"/>
 
-    <!-- Massive Front Right Wheel (foreground) -->
-    <ellipse cx="44" cy="90" rx="10" ry="17" fill="url(#van_tire)" />
-    <ellipse cx="44" cy="90" rx="6" ry="10" fill="#475569" />
-    <circle cx="44" cy="90" r="2.5" fill="#f59e0b" />
-    <!-- Rugged Tire Treads -->
-    <line x1="36" y1="84" x2="39" y2="86" stroke="#475569" stroke-width="1.5" />
-    <line x1="34" y1="92" x2="38" y2="92" stroke="#475569" stroke-width="1.5" />
-    <line x1="36" y1="99" x2="40" y2="97" stroke="#475569" stroke-width="1.5" />
-
-    <!-- Massive Rear Right Wheel (foreground) -->
-    <ellipse cx="98" cy="74" rx="12" ry="20" fill="url(#van_tire)" />
-    <ellipse cx="98" cy="74" rx="7" ry="12" fill="#475569" />
-    <circle cx="98" cy="74" r="3" fill="#f59e0b" />
-    <!-- Treads -->
-    <line x1="88" y1="67" x2="92" y2="70" stroke="#475569" stroke-width="1.8" />
-    <line x1="86" y1="76" x2="91" y2="76" stroke="#475569" stroke-width="1.8" />
-    <line x1="88" y1="85" x2="93" y2="82" stroke="#475569" stroke-width="1.8" />
-  </g>
+  <!-- Massive Rear Right Wheel (foreground) -->
+  <ellipse cx="98" cy="73" rx="13" ry="22" fill="url(#van_tire)"/>
+  <ellipse cx="98" cy="73" rx="7.5" ry="13" fill="#475569"/>
+  <circle cx="98" cy="73" r="3.5" fill="#f59e0b"/>
+  <!-- Treads -->
+  <line x1="87" y1="65" x2="92" y2="68" stroke="#64748b" stroke-width="2.2"/>
+  <line x1="85" y1="75" x2="90" y2="75" stroke="#64748b" stroke-width="2.2"/>
+  <line x1="87" y1="85" x2="92" y2="81" stroke="#64748b" stroke-width="2.2"/>
 </svg>

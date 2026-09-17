@@ -1299,22 +1299,13 @@
       btn.dataset.vehicleId = v.id;
       btn.type = 'button';
 
-      // 128x128 Preview image matching native PolyTrack Rims/Patterns
+      // 128x128 3D Preview render (Pure render, exactly matching native PolyTrack Exhausts / Patterns)
       const img = document.createElement('img');
       img.src = v.image || `images/vehicle_${v.id}.svg`;
       img.alt = v.name;
       img.width = 128;
       img.height = 128;
       btn.appendChild(img);
-
-      // Compact label badge at bottom of button
-      const tagBar = document.createElement('div');
-      tagBar.className = 'vehicle-pill-badge';
-      tagBar.innerHTML = `
-        <span class="v-name">${v.shortName || v.tag || v.name}</span>
-        <span class="v-badge" style="background: ${v.color || '#3b82f6'};">${v.badge || 'PRO'}</span>
-      `;
-      btn.appendChild(tagBar);
 
       // Tooltip on hover (slides out cleanly to the left without obstructing the car)
       const tooltip = document.createElement('div');
@@ -1390,15 +1381,18 @@
       let vehicleBtn = tabBar.querySelector('.vehicle-tab-btn');
       if (!vehicleBtn) {
         const existingButtons = Array.from(tabBar.querySelectorAll('.button'));
-        const found = existingButtons.find(b => b.textContent && (b.textContent.includes('Véhicule') || b.textContent.includes('Skins')));
+        const found = existingButtons.find(b => b.textContent && (b.textContent.includes('Cars') || b.textContent.includes('Véhicule') || b.textContent.includes('Skins')));
         if (found) {
           vehicleBtn = found;
           vehicleBtn.classList.add('vehicle-tab-btn');
+          if (!vehicleBtn.textContent.includes('Cars')) {
+            vehicleBtn.innerHTML = 'Cars <img class="button-icon" src="images/vehicles_tab.svg">';
+          }
         } else {
           vehicleBtn = document.createElement('button');
           vehicleBtn.className = 'button vehicle-tab-btn';
           vehicleBtn.type = 'button';
-          vehicleBtn.innerHTML = 'Véhicules <img class="button-icon" src="images/vehicles_tab.svg">';
+          vehicleBtn.innerHTML = 'Cars <img class="button-icon" src="images/vehicles_tab.svg">';
           tabBar.appendChild(vehicleBtn);
         }
       }
