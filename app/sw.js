@@ -1,10 +1,11 @@
 // PolyTrack Standalone Service Worker (Offline & PWA Cache)
-const CACHE_NAME = 'polytrack-standalone-v3';
+const CACHE_NAME = 'polytrack-standalone-v5';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './static_adapter.js',
+  './vehicle_models.js',
   './main.bundle.js',
   './simulation_worker.bundle.js',
   './error_screen.bundle.js',
@@ -31,6 +32,7 @@ const PRECACHE_ASSETS = [
   './images/logo.svg',
   './images/discord.svg',
   './images/smoke.png',
+  './images/vehicles_tab.svg',
   './tracks/community/qxyntra_gp.track',
   './tracks/community/qxyntra_dunes.track',
   './tracks/community/qxyntra_alpine.track',
