@@ -361,9 +361,10 @@
     b.addBox(0.38, -0.05, 0.95, 0.68, -0.01, 1.25, 0);
 
     // Single Front Center Landing Gear & 8-Sided Wheel (EXACTLY 3 WHEELS CONFIG)
-    b.addBox(-0.035, -0.36, 1.28, 0.035, -0.15, 1.38, 2); // metal strut
-    b.addBox(-0.05, -0.28, 1.36, 0.05, -0.20, 1.44, 2);   // scissor link
-    b.addWheelX(0, -0.33, 1.35, 0.12, 0.14, 2, 1);        // 8-sided nose wheel (rim=2, tire=1)
+    // Sits at Y = -0.53 with radius 0.20, giving bottom at Y = -0.73 (matching rear wheels ground level)
+    b.addBox(-0.035, -0.53, 1.28, 0.035, -0.18, 1.38, 2); // vertical steel strut
+    b.addBox(-0.05, -0.44, 1.36, 0.05, -0.34, 1.44, 2);   // scissor link
+    b.addWheelX(0, -0.53, 1.35, 0.20, 0.14, 2, 1);        // 8-sided nose wheel (rim=2, tire=1)
 
     // Jet Cockpit Canopy with Arch
     b.addSlopedBox(-0.28, 0.28, 0.08, 0.14, 0.42, 0.30, 0.95, 1);
@@ -574,9 +575,18 @@
     const carGroup = (0, l.gn)(carInstance, me, "f");
     if (!oldMesh || !carGroup) return;
 
+    // 1. Capture the existing matrix so the new mesh NEVER drops to (0,0,0) under the floor!
+    const oldMatrix = oldMesh.matrix ? oldMesh.matrix.clone() : null;
+
     carGroup.remove(oldMesh);
     const newMesh = createVehicleChassis(B, THREE);
     newMesh.matrixAutoUpdate = false;
+
+    // 2. Immediately inherit transform from previous mesh
+    if (oldMatrix) {
+      newMesh.matrix.copy(oldMatrix);
+    }
+
     (0, l.GG)(carInstance, be, newMesh, "f");
 
     if (D && Oe) {
@@ -590,10 +600,36 @@
 
     carGroup.add(newMesh);
 
-    // Apply wheel and suspension visibility
+    // 3. Compute exact matrix from carInstance position & quaternion
+    try {
+      if (typeof carInstance.getMatrix4 === 'function') {
+        const mat = carInstance.getMatrix4();
+        if (mat) {
+          newMesh.matrix.copy(mat);
+          const massOffset = (B && B.massOffset !== undefined) ? B.massOffset : 0.6;
+          const Kn4Class = THREE && (THREE.Matrix4 || THREE.kn4 || (mat && mat.constructor));
+          if (Kn4Class) {
+            newMesh.matrix.multiply(new Kn4Class().makeTranslation(0, massOffset, 0));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[PolyTrack] Matrix calculation error:', e);
+    }
+
+    // 4. Trigger carInstance.update(0) to update wheels, suspension and chassis matrix
+    if (typeof carInstance.update === 'function') {
+      try {
+        carInstance.update(0);
+      } catch (e) {
+        console.warn('[PolyTrack] carInstance.update error:', e);
+      }
+    }
+
+    // 5. Apply wheel and suspension visibility
     applyWheelVisibility(carInstance, l, xe, ye, vType);
 
-    // Refresh colors on new mesh from car style
+    // 6. Refresh colors on new mesh from car style
     try {
       const style = carInstance.getCarStyle && carInstance.getCarStyle();
       if (style) {
@@ -960,6 +996,11 @@
       const badge = b.querySelector('.active-badge');
       if (badge) badge.style.display = isThis ? 'inline-block' : 'none';
     });
+
+    // Make sure garage car matrix & wheels are updated
+    if (window._garageCarInstance && typeof window._garageCarInstance.update === 'function') {
+      window._garageCarInstance.update(0);
+    }
   }
 
   // --- 7. AUTO-GARAGE DOM WATCHER & TAB INJECTOR ---
@@ -1009,6 +1050,10 @@
           vPanel.classList.remove('hidden');
           vPanel.style.display = 'flex';
           refreshGaragePanelSelection();
+
+          if (window._garageCarInstance && typeof window._garageCarInstance.update === 'function') {
+            window._garageCarInstance.update(0);
+          }
         });
 
         tabBar.querySelectorAll('.button').forEach(b => {
