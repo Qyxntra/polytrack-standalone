@@ -62,23 +62,44 @@
 
   // --- 1. ADVANCED SOLID LOW-POLY GEOMETRY BUILDER ---
   function createSolidBuilder(THREE, B) {
-    // 4 Contiguous Material Buckets:
-    // 0: Main (Car primary paint color)
+    // 5 Contiguous Material Buckets:
+    // 0: Main (Car primary paint color + dynamic pattern texture & secondary color)
     // 1: AirIntake (Dark intake grilles, tinted glass, canopy, tires)
-    // 2: Metal (Chrome frame, splitters, diffusers, exhausts, struts, rims, rotors)
+    // 2: Metal (Chrome frame, splitters, diffusers, exhausts, struts, rotors)
     // 3: BrakeLight (Rear lights, jet thrusters, calipers, hooks, tow rings)
-    const buckets = { 0: [], 1: [], 2: [], 3: [] };
+    // 4: Rim (Wheel rims for custom wheels e.g. airplane nose wheel & spare tire)
+    const buckets = { 0: [], 1: [], 2: [], 3: [], 4: [] };
 
     const baseChassis = B && B.models && B.models.chassis;
     const BufferGeometryClass = (THREE && (THREE.BufferGeometry || THREE.LoY)) || (baseChassis && baseChassis.geometry && baseChassis.geometry.constructor);
     const BufferAttributeClass = (THREE && (THREE.BufferAttribute || THREE.THS)) || (baseChassis && baseChassis.geometry && baseChassis.geometry.attributes.position && baseChassis.geometry.attributes.position.constructor);
 
-    function addTri(p1, p2, p3, norm, matIdx) {
+    function computeUV(p) {
+      // Planar top-down mapping strictly conforming to PolyTrack car patterns
+      // X = 0 -> u = 0.32205; scaleX = 0.38
+      // Z = -1.92 -> v ~ 0.06; Z = +1.82 -> v ~ 0.88; scaleZ = 0.22
+      const u = Math.max(0, Math.min(1, 0.32205 + p[0] * 0.38));
+      const v = Math.max(0, Math.min(1, 0.48 + p[2] * 0.22));
+      return [u, v];
+    }
+
+    function addTri(p1, p2, p3, norm, matIdx, customUVs) {
       const b = buckets[matIdx] || (buckets[matIdx] = []);
+      let uvs;
+      if (customUVs) {
+        uvs = customUVs;
+      } else if (matIdx === 0) {
+        const uv1 = computeUV(p1);
+        const uv2 = computeUV(p2);
+        const uv3 = computeUV(p3);
+        uvs = [uv1[0], uv1[1], uv2[0], uv2[1], uv3[0], uv3[1]];
+      } else {
+        uvs = [0, 0, 1, 0, 0.5, 1];
+      }
       b.push({
         positions: [p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]],
         normals: [norm[0], norm[1], norm[2], norm[0], norm[1], norm[2], norm[0], norm[1], norm[2]],
-        uvs: [0, 0, 1, 0, 0.5, 1]
+        uvs: uvs
       });
     }
 
@@ -222,7 +243,7 @@
       const groups = [];
       let currentOffset = 0;
 
-      for (let m = 0; m <= 3; m++) {
+      for (let m = 0; m <= 4; m++) {
         const list = buckets[m] || [];
         const count = list.length * 3;
         if (count > 0) {
@@ -371,15 +392,9 @@
     b.addBox(0.29, -0.32, -1.94, 0.32, -0.16, -1.68, 2);  // fin 5
     b.addBox(0.49, -0.32, -1.94, 0.52, -0.16, -1.68, 2);  // fin 6
 
-    // Quad Titanium Exhausts with glowing afterburner cores
-    b.addCylinderZ(-0.30, -0.14, -1.96, -1.82, 0.045, 0.045, 6, 2);
-    b.addCylinderZ(-0.20, -0.14, -1.96, -1.82, 0.045, 0.045, 6, 2);
-    b.addCylinderZ(-0.30, -0.14, -1.97, -1.95, 0.035, 0.035, 6, 3); // inner flame core L1
-    b.addCylinderZ(-0.20, -0.14, -1.97, -1.95, 0.035, 0.035, 6, 3); // inner flame core L2
-    b.addCylinderZ(0.20, -0.14, -1.96, -1.82, 0.045, 0.045, 6, 2);
-    b.addCylinderZ(0.30, -0.14, -1.96, -1.82, 0.045, 0.045, 6, 2);
-    b.addCylinderZ(0.20, -0.14, -1.97, -1.95, 0.035, 0.035, 6, 3); // inner flame core R1
-    b.addCylinderZ(0.30, -0.14, -1.97, -1.95, 0.035, 0.035, 6, 3); // inner flame core R2
+    // Aerodynamic Diffuser Exhaust Tunnel (houses the active PolyTrack selected exhaust model)
+    b.addBox(-0.25, -0.26, -1.94, 0.25, -0.10, -1.82, 2); // metal exhaust port shroud
+    b.addBox(-0.22, -0.24, -1.96, 0.22, -0.12, -1.84, 1); // dark recessed exhaust tunnel interior
 
     // GT Swan-Neck Wing with Gurney Flap & Endplates
     b.addBox(-0.38, 0.08, -1.80, -0.34, 0.34, -1.68, 2); // left swan pylon
@@ -486,16 +501,15 @@
     b.addBox(-0.48, 0.32, -1.30, 0.48, 0.36, -1.24, 2);  // transverse crossbar
 
     // REAL SPARE OFFROAD WHEEL & TIRE MOUNTED AT 45° IN THE BED
-    b.addWheelX(0, 0.12, -1.22, 0.24, 0.20, 2, 1);
+    b.addWheelX(0, 0.12, -1.22, 0.24, 0.20, 4, 1); // rim=4 (Rim), tire=1 (AirIntake)
     // Y-Strap Ratchet Tie-Down over the spare tire
     b.addBox(-0.03, 0.36, -1.24, 0.03, 0.39, -1.18, 3);  // center ratchet buckle
     b.addBox(-0.02, 0.20, -1.23, 0.02, 0.37, -1.20, 3);  // strap vertical
     b.addBox(-0.16, 0.12, -1.23, -0.02, 0.36, -1.20, 3); // strap diagonal L
     b.addBox(0.02, 0.12, -1.23, 0.16, 0.36, -1.20, 3);  // strap diagonal R
 
-    // Angled side-exit twin exhausts before the rear tires
-    b.addBox(-0.74, -0.24, -0.80, -0.66, -0.18, -0.66, 2);
-    b.addBox(0.66, -0.24, -0.80, 0.74, -0.18, -0.66, 2);
+    // Heavy rear exhaust mounting shroud under bumper (houses active selected exhaust model)
+    b.addBox(-0.25, -0.30, -1.94, 0.25, -0.16, -1.80, 2);
 
     // Heavy rear tubular bumper & tow hitch receiver
     b.addBox(-0.74, -0.32, -1.95, 0.74, -0.16, -1.82, 2);
@@ -542,7 +556,7 @@
     b.addBox(-0.08, -0.35, 1.30, -0.04, -0.30, 1.38, 2);  // taxi spotlight L
     b.addBox(0.04, -0.35, 1.30, 0.08, -0.30, 1.38, 2);   // taxi spotlight R
     b.addBox(-0.10, -0.36, 1.22, 0.10, -0.30, 1.48, 0);   // aerodynamic gravel mudguard
-    b.addWheelX(0, -0.53, 1.35, 0.20, 0.14, 2, 1);        // 8-sided nose wheel (rim=2, tire=1)
+    b.addWheelX(0, -0.53, 1.35, 0.20, 0.14, 4, 1);        // 8-sided nose wheel (rim=4 Rim, tire=1)
 
     // Jet Cockpit Canopy with Arch & Interior
     b.addSlopedBox(-0.30, 0.30, 0.08, 0.14, 0.44, 0.30, 0.98, 1);
@@ -695,7 +709,7 @@
     window._selectedVehicleType = type;
   }
 
-  // --- 4. CHASSIS MESH INSTANTIATION & VISIBILITY ---
+  // --- 4. CHASSIS MESH INSTANTIATION, VISIBILITY & CUSTOMIZATION ENGINE ---
   function createVehicleChassis(B, THREE) {
     const vType = window._selectedVehicleType || getSelectedVehicleType();
     const baseChassis = B.models.chassis;
@@ -735,26 +749,78 @@
       clonedMaterials = [cloned, cloned.clone(), cloned.clone(), cloned.clone()];
     }
 
+    // Material 4: Rim material for custom wheels (e.g. airplane nose wheel & spare tire)
+    let rimMat = null;
+    if (B && B.models && B.models.rims) {
+      try {
+        const firstRim = B.models.rims.get(0);
+        if (firstRim && firstRim.material) {
+          const rimMats = Array.isArray(firstRim.material) ? firstRim.material : [firstRim.material];
+          const found = rimMats.find(m => m && m.name === 'Rim');
+          if (found) rimMat = found.clone();
+        }
+      } catch (e) {}
+    }
+    if (!rimMat && clonedMaterials[2]) {
+      rimMat = clonedMaterials[2].clone();
+      rimMat.name = 'Rim';
+    }
+    if (rimMat) {
+      rimMat.side = 2;
+      rimMat.shadowSide = 2;
+      clonedMaterials[4] = rimMat;
+    }
+
     const newMesh = new MeshClass(geom, clonedMaterials);
     newMesh.castShadow = true;
     newMesh.receiveShadow = true;
     return newMesh;
   }
 
+  function applyExhaustTransform(exhaustMesh, vType) {
+    if (!exhaustMesh) return;
+    vType = vType || window._selectedVehicleType || getSelectedVehicleType();
+    if (vType === 'voiture') {
+      exhaustMesh.position.set(0, 0.18, 0.05);
+      exhaustMesh.scale.set(0.95, 0.95, 0.95);
+      exhaustMesh.visible = true;
+    } else if (vType === 'camionnette') {
+      exhaustMesh.position.set(0, 0.14, 0.05);
+      exhaustMesh.scale.set(1.15, 1.15, 1.15);
+      exhaustMesh.visible = true;
+    } else if (vType === 'avion') {
+      exhaustMesh.position.set(0, 0.30, 0.02);
+      exhaustMesh.scale.set(0.9, 0.9, 0.9);
+      exhaustMesh.visible = true;
+    } else {
+      // f1
+      exhaustMesh.position.set(0, 0, 0);
+      exhaustMesh.scale.set(1, 1, 1);
+      exhaustMesh.visible = true;
+    }
+  }
+
   function applyWheelVisibility(carInstance, l, xe, ye, vType) {
     if (!carInstance || !xe) return;
     vType = vType || window._selectedVehicleType || getSelectedVehicleType();
+
+    // Auto-hook carInstance for future style updates
+    if (!carInstance._polytrackCustomHooked && window._cachedWeakMaps) {
+      const { B, be, me, D, Oe, we } = window._cachedWeakMaps;
+      hookCarInstance(carInstance, l, B, be, me, D, Oe, we, xe, ye);
+    }
+
     try {
       const wheels = (0, l.gn)(carInstance, xe, "f");
       if (Array.isArray(wheels)) {
         if (vType === 'avion') {
-          // Exactly 3 wheels: 1 front center (built into chassis geometry) + 2 rear wheels
+          // Exactly 3 wheels: 1 front center (built into chassis geometry) + 2 rear wheels with user selected rims
           if (wheels[0]) wheels[0].visible = false;
           if (wheels[1]) wheels[1].visible = false;
           if (wheels[2]) wheels[2].visible = true;
           if (wheels[3]) wheels[3].visible = true;
         } else {
-          // Standard 4 wheels
+          // Standard 4 wheels for F1, Voiture GT, Camionnette
           for (let i = 0; i < wheels.length; i++) {
             if (wheels[i]) wheels[i].visible = true;
           }
@@ -766,9 +832,66 @@
           suspension.visible = (vType !== 'avion');
         }
       }
+      if (window._cachedWeakMaps && window._cachedWeakMaps.we) {
+        const exhaustMesh = (0, l.gn)(carInstance, window._cachedWeakMaps.we, "f");
+        if (exhaustMesh) {
+          applyExhaustTransform(exhaustMesh, vType);
+        }
+      }
     } catch (e) {
       console.warn('[PolyTrack] Error applying wheel visibility:', e);
     }
+  }
+
+  function hookCarInstance(carInstance, l, B, be, me, D, Oe, we, xe, ye) {
+    if (!carInstance || carInstance._polytrackCustomHooked) return;
+    carInstance._polytrackCustomHooked = true;
+
+    // Cache WeakMaps globally so garage watchers and event handlers can re-use them
+    window._cachedWeakMaps = { l, B, be, me, D, Oe, we, xe, ye };
+
+    const origSetCarStyle = carInstance.setCarStyle;
+    carInstance.setCarStyle = function(style) {
+      if (typeof origSetCarStyle === 'function') {
+        origSetCarStyle.call(this, style);
+      }
+
+      const vType = window._selectedVehicleType || getSelectedVehicleType();
+
+      // 1. Enforce wheel visibility: For 'avion', ONLY 2 rear wheels with the new rims are visible!
+      try {
+        applyWheelVisibility(this, l, xe, ye, vType);
+      } catch (e) {}
+
+      // 2. Re-apply exhaust transform if exhaust model was replaced
+      try {
+        if (we) {
+          const exhaustMesh = (0, l.gn)(this, we, "f");
+          if (exhaustMesh) {
+            applyExhaustTransform(exhaustMesh, vType);
+          }
+        }
+      } catch (e) {}
+
+      // 3. Propagate rim color to any custom materials named 'Rim' (e.g. plane nose wheel & spare tire)
+      try {
+        if (me && style && style.rimsColor) {
+          const group = (0, l.gn)(this, me, "f");
+          if (group) {
+            group.traverse(child => {
+              if (child.material) {
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                for (const m of mats) {
+                  if (m && m.name === 'Rim') {
+                    m.color.set(style.rimsColor);
+                  }
+                }
+              }
+            });
+          }
+        }
+      } catch (e) {}
+    };
   }
 
   function changeVehicleChassis(carInstance, vType, THREE, l, B, be, me, D, Oe, we, xe, ye) {
@@ -777,6 +900,9 @@
       window._selectedVehicleType = vType;
 
       if (!carInstance || !l) return;
+
+      // Ensure carInstance is hooked for all future style changes (paint, pattern, rims, exhaust)
+      hookCarInstance(carInstance, l, B, be, me, D, Oe, we, xe, ye);
 
       let oldMesh = null;
       let carGroup = null;
@@ -794,6 +920,18 @@
       }
 
       if (!carGroup) return;
+
+      // Detach existing exhaust mesh from oldMesh before removing oldMesh
+      let exhaustMesh = null;
+      try {
+        if (we) exhaustMesh = (0, l.gn)(carInstance, we, "f");
+      } catch (e) {}
+
+      if (exhaustMesh && exhaustMesh.parent) {
+        try {
+          exhaustMesh.parent.remove(exhaustMesh);
+        } catch (e) {}
+      }
 
       // 1. Capture the existing matrix so the new mesh NEVER drops to (0,0,0) under the floor!
       const oldMatrix = (oldMesh && oldMesh.matrix) ? oldMesh.matrix.clone() : null;
@@ -833,7 +971,17 @@
         carGroup.add(newMesh);
       } catch (e) {}
 
-      // 3. Compute exact matrix from carInstance position & quaternion
+      // 3. Re-attach exhaust to newMesh and apply proper transform
+      if (exhaustMesh) {
+        try {
+          newMesh.add(exhaustMesh);
+          applyExhaustTransform(exhaustMesh, vType);
+        } catch (e) {
+          console.warn('[PolyTrack] Error attaching exhaust:', e);
+        }
+      }
+
+      // 4. Compute exact matrix from carInstance position & quaternion
       try {
         if (typeof carInstance.getMatrix4 === 'function') {
           const mat = carInstance.getMatrix4();
@@ -850,7 +998,7 @@
         console.warn('[PolyTrack] Matrix calculation error:', e);
       }
 
-      // 4. Trigger carInstance.update(0) to update wheels, suspension and chassis matrix
+      // 5. Trigger carInstance.update(0) to update wheels, suspension and chassis matrix
       if (typeof carInstance.update === 'function') {
         try {
           carInstance.update(0);
@@ -859,12 +1007,12 @@
         }
       }
 
-      // 5. Apply wheel and suspension visibility
+      // 6. Apply wheel and suspension visibility
       try {
         applyWheelVisibility(carInstance, l, xe, ye, vType);
       } catch (e) {}
 
-      // 6. Refresh colors on new mesh from car style
+      // 7. Refresh colors on new mesh from car style
       try {
         const style = carInstance.getCarStyle && carInstance.getCarStyle();
         if (style) {
@@ -1451,6 +1599,8 @@
     createVehicleChassis,
     changeVehicleChassis,
     applyWheelVisibility,
+    applyExhaustTransform,
+    hookCarInstance,
     updatePower,
     disposePower,
     buildSportsCarGeometry,

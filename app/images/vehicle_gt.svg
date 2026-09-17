@@ -1,92 +1,145 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <rect width="128" height="128" fill="#000000"/>
-
   <defs>
-    <linearGradient id="gt_body" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="45%" stop-color="#0284c7"/>
+    <radialGradient id="gt_shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.85"/>
+      <stop offset="65%" stop-color="#0284c7" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gt_body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/>
       <stop offset="100%" stop-color="#0369a1"/>
     </linearGradient>
-    <linearGradient id="gt_high" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#bae6fd"/>
-      <stop offset="100%" stop-color="#38bdf8"/>
+    <linearGradient id="gt_body_light" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
     </linearGradient>
-    <linearGradient id="gt_glass" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="50%" stop-color="#1e293b"/>
-      <stop offset="100%" stop-color="#020617"/>
+    <linearGradient id="gt_body_dark" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#075985"/>
+      <stop offset="100%" stop-color="#0c4a6e"/>
     </linearGradient>
-    <linearGradient id="gt_tire" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#334155"/>
-      <stop offset="100%" stop-color="#090d16"/>
+    <linearGradient id="gt_glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="gt_tire" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#27272a"/>
+      <stop offset="100%" stop-color="#09090b"/>
     </linearGradient>
   </defs>
 
-  <!-- Rear Left Wheel (back) -->
-  <ellipse cx="90" cy="62" rx="8" ry="15" fill="#090d16"/>
-  <ellipse cx="90" cy="62" rx="4.5" ry="9" fill="#334155"/>
+  <!-- Ground Shadow -->
+  <ellipse cx="64" cy="92" rx="48" ry="15" fill="url(#gt_shadow)"/>
 
-  <!-- Swan-Neck GT Rear Wing -->
-  <polygon points="86,42 114,45 109,51 81,48" fill="#0284c7"/>
-  <polygon points="86,42 114,45 112,43 84,40" fill="url(#gt_high)"/>
+  <!-- Rear Left Wheel (Occluded) -->
+  <polygon points="49,60 56,57 60,70 53,73" fill="#18181b"/>
+  <polygon points="56,57 58,56 62,68 60,70" fill="#27272a"/>
+
+  <!-- GT Swan-Neck Rear Wing -->
+  <!-- Left Pylon -->
+  <polygon points="86,52 89,50 89,64 86,65" fill="#09090b"/>
+  <!-- Right Pylon -->
+  <polygon points="94,48 97,46 97,60 94,61" fill="#09090b"/>
+  <!-- Carbon Aerofoil Blade -->
+  <polygon points="82,45 112,32 114,37 84,50" fill="#0284c7"/>
+  <polygon points="84,50 114,37 114,39 84,52" fill="#075985"/>
+  <!-- Cyan Gurney Flap -->
+  <polygon points="83,43 111,30 111,33 83,46" fill="#38bdf8"/>
   <!-- Wing Endplates -->
-  <polygon points="114,45 118,41 118,56 114,54" fill="#38bdf8"/>
-  <polygon points="86,42 82,38 82,52 86,50" fill="#0369a1"/>
-  <!-- Carbon Pylons -->
-  <polygon points="91,47 94,59 90,59 88,47" fill="#0f172a"/>
-  <polygon points="101,49 104,61 100,61 98,49" fill="#0f172a"/>
+  <polygon points="79,43 83,41 84,56 80,57" fill="#0369a1"/>
+  <polygon points="110,29 114,27 115,42 111,44" fill="#38bdf8"/>
 
-  <!-- Front Left Wheel (back) -->
-  <ellipse cx="36" cy="73" rx="7" ry="13" fill="#090d16"/>
+  <!-- Rear Right Wheel -->
+  <polygon points="93,61 106,55 116,73 103,81" fill="url(#gt_tire)"/>
+  <polygon points="106,55 110,53 120,70 116,73" fill="#09090b"/>
+  <polygon points="93,61 97,59 107,77 103,81" fill="#3f3f46"/>
+  <!-- Rim -->
+  <polygon points="97,62 104,59 111,71 104,76" fill="#18181b"/>
+  <ellipse cx="104" cy="67" rx="4.2" ry="6" fill="#09090b" transform="rotate(-15 104 67)"/>
+  <circle cx="104" cy="67" r="2.2" fill="none" stroke="#38bdf8" stroke-width="1"/>
+  <circle cx="104" cy="67" r="1" fill="#38bdf8"/>
 
-  <!-- Carbon Lower Side Skirt & Splitter -->
-  <polygon points="16,92 40,97 90,82 106,77 102,72 36,82 14,87" fill="#090d16"/>
+  <!-- Supercar Rear Deck & Louvered Engine Cover -->
+  <polygon points="72,55 94,46 99,57 76,68" fill="url(#gt_body)"/>
+  <polygon points="76,68 99,57 102,68 78,80" fill="url(#gt_body_dark)"/>
+  <!-- Cooling Louvers (Black) -->
+  <polygon points="78,57 91,51 92,53 79,59" fill="#09090b"/>
+  <polygon points="80,61 93,55 94,57 81,63" fill="#09090b"/>
+  <polygon points="82,65 95,59 96,61 83,67" fill="#09090b"/>
+  <!-- Full-Width Cyber LED Taillight Strip (Red/Crimson) -->
+  <polygon points="98,63 104,60 105,63 99,66" fill="#ef4444"/>
+  <line x1="98" y1="64" x2="104" y2="61" stroke="#f87171" stroke-width="1.5"/>
 
-  <!-- Main Supercar Fuselage / Body -->
-  <polygon points="18,89 38,94 88,79 108,74 108,62 88,58 60,54 38,67 18,79" fill="url(#gt_body)"/>
+  <!-- Quad Titanium Exhaust Pipes -->
+  <circle cx="100" cy="69" r="1.8" fill="#18181b" stroke="#67e8f9" stroke-width="0.8"/>
+  <circle cx="103" cy="67" r="1.8" fill="#18181b" stroke="#67e8f9" stroke-width="0.8"/>
 
-  <!-- Sculpted Hood Facets & Vents -->
-  <polygon points="18,79 38,67 56,70 34,87 18,89" fill="url(#gt_high)"/>
-  <!-- Dual Hood Air Extractors -->
-  <polygon points="28,76 42,70 40,74 26,79" fill="#090d16"/>
-  <polygon points="34,80 48,74 46,77 32,82" fill="#090d16"/>
-
-  <!-- Cabin, Windshield & Roof Scoop -->
-  <polygon points="40,66 60,54 78,55 84,64 54,70" fill="url(#gt_glass)"/>
-  <!-- Roof Surface -->
-  <polygon points="60,54 78,55 84,59 66,58" fill="#38bdf8"/>
-  <!-- Roof Snorkel Scoop -->
-  <polygon points="68,52 76,53 74,56 66,55" fill="#090d16"/>
+  <!-- Sleek Greenhouse / Cockpit Canopy & Windshield -->
+  <!-- Windshield -->
+  <polygon points="45,67 67,54 75,59 52,74" fill="url(#gt_glass)"/>
+  <!-- Tinted Glass Specular Sheen -->
+  <polygon points="48,67 63,57 66,60 51,70" fill="#38bdf8" fill-opacity="0.35"/>
+  <!-- Black Carbon Roof (Double Bubble) -->
+  <polygon points="57,51 75,43 83,52 64,61" fill="#09090b"/>
+  <polygon points="59,51 74,44 76,46 61,53" fill="#18181b"/> <!-- Left Bubble -->
+  <polygon points="65,58 80,50 82,52 67,60" fill="#18181b"/> <!-- Right Bubble -->
   <!-- Side Window Glass -->
-  <polygon points="56,68 78,63 80,66 58,70" fill="#475569" opacity="0.8"/>
+  <polygon points="52,74 64,61 77,54 66,73" fill="url(#gt_glass)"/>
+  <!-- A-Pillar and C-Pillar Trims -->
+  <line x1="45" y1="67" x2="57" y2="51" stroke="url(#gt_body_light)" stroke-width="1.5"/>
+  <line x1="64" y1="61" x2="76" y2="68" stroke="url(#gt_body_dark)" stroke-width="1.5"/>
 
-  <!-- Front Aggressive LED Headlights (Ice-Blue Neon Glow) -->
-  <polygon points="20,83 30,80 28,84 20,86" fill="#e0f2fe"/>
-  <polygon points="32,84 38,82 36,87 30,87" fill="#38bdf8"/>
-  <polygon points="20,83 30,80 32,82 22,85" fill="#ffffff"/> <!-- Glare -->
+  <!-- Front Left Wheel (Occluded) -->
+  <polygon points="32,69 38,66 42,77 36,80" fill="#18181b"/>
+  <polygon points="38,66 40,65 44,75 42,77" fill="#27272a"/>
 
-  <!-- Side Air Radiator Scoop -->
-  <polygon points="70,73 84,70 82,78 68,79" fill="#000000"/>
-  <polygon points="84,70 86,70 84,78 82,78" fill="#38bdf8"/> <!-- Aileron fin -->
+  <!-- Sculpted Doors & Side Air Intake Scoop -->
+  <polygon points="50,75 66,66 75,76 56,86" fill="url(#gt_body)"/>
+  <!-- Side Intake Air Scoop (Black Vent) -->
+  <polygon points="67,69 74,65 77,73 70,77" fill="#09090b"/>
+  <polygon points="69,71 73,68 75,72 71,74" fill="#0284c7"/>
+  <!-- Aerodynamic Side Mirror -->
+  <polygon points="50,68 55,65 56,69 51,71" fill="#0284c7"/>
+  <polygon points="55,65 57,66 56,69 54,68" fill="#09090b"/>
+  <!-- Carbon Side Skirt Blade -->
+  <polygon points="55,87 79,75 83,79 59,90" fill="#09090b"/>
 
-  <!-- Front Splitter Winglet (Dive plane) -->
-  <polygon points="12,85 18,83 20,91 14,93" fill="#0f172a"/>
-  <polygon points="18,83 26,82 24,84 17,85" fill="#0284c7"/>
+  <!-- Sculpted Hood & Muscular Front Fenders -->
+  <polygon points="20,84 48,66 61,73 29,93" fill="url(#gt_body_light)"/>
+  <!-- Hood Recessed Twin Extractor Louvers -->
+  <polygon points="32,80 43,73 45,75 34,83" fill="#0c4a6e"/>
+  <polygon points="37,84 48,77 50,79 39,87" fill="#0c4a6e"/>
+  <!-- Right Flared Widebody Fender -->
+  <polygon points="29,93 61,73 66,84 32,100" fill="url(#gt_body)"/>
+  <polygon points="32,100 66,84 64,88 30,102" fill="url(#gt_body_dark)"/>
 
-  <!-- Front Right Wheel (foreground) -->
-  <ellipse cx="44" cy="93" rx="9" ry="16" fill="url(#gt_tire)"/>
-  <ellipse cx="44" cy="93" rx="5.5" ry="10" fill="#475569"/>
-  <!-- Red Brembo Brake Caliper -->
-  <circle cx="42" cy="93" r="3" fill="#ef4444"/>
-  <circle cx="44" cy="93" r="2" fill="#090d16"/>
+  <!-- Aggressive LED Headlights (Glowing Cyan Core) -->
+  <polygon points="23,87 31,82 32,85 24,90" fill="#09090b"/>
+  <polygon points="25,86 30,83 31,85 26,88" fill="#e0f2fe"/>
+  <line x1="24" y1="88" x2="31" y2="83" stroke="#38bdf8" stroke-width="1.8"/>
 
-  <!-- Rear Right Wheel (foreground) -->
-  <ellipse cx="100" cy="76" rx="11" ry="18" fill="url(#gt_tire)"/>
-  <ellipse cx="100" cy="76" rx="6.5" ry="11" fill="#475569"/>
-  <!-- Red Brembo Brake Caliper -->
-  <circle cx="98" cy="76" r="3.5" fill="#ef4444"/>
-  <circle cx="100" cy="76" r="2.5" fill="#090d16"/>
+  <!-- Front Chin Splitter & Corner Canards -->
+  <polygon points="12,94 34,80 39,85 16,101" fill="#09090b"/>
+  <polygon points="13,93 18,90 20,95 15,98" fill="#0284c7"/> <!-- Left Canard -->
+  <polygon points="34,79 38,76 41,81 37,84" fill="#0284c7"/> <!-- Right Canard -->
+  <!-- Center Radiator Grille Mesh -->
+  <polygon points="20,93 30,86 32,91 22,98" fill="#020617"/>
 
-  <!-- Rear Diffuser / Titanium Quad Exhausts -->
-  <polygon points="108,74 113,72 111,76 106,77" fill="#06b6d4"/>
+  <!-- Front Right Wheel -->
+  <polygon points="40,82 52,75 62,95 50,103" fill="url(#gt_tire)"/>
+  <polygon points="52,75 56,73 66,92 62,95" fill="#09090b"/>
+  <polygon points="40,82 44,80 54,99 50,103" fill="#3f3f46"/>
+  <!-- Rim -->
+  <polygon points="44,83 51,79 58,93 51,98" fill="#18181b"/>
+  <ellipse cx="51" cy="88" rx="4.2" ry="6.2" fill="#09090b" transform="rotate(-18 51 88)"/>
+  <circle cx="51" cy="88" r="2.4" fill="none" stroke="#38bdf8" stroke-width="1"/>
+  <circle cx="51" cy="88" r="1" fill="#38bdf8"/>
+
+  <!-- Specular Highlights & Glints -->
+  <g stroke="#ffffff" stroke-width="0.6" stroke-opacity="0.6" fill="none">
+    <line x1="22" y1="83" x2="47" y2="66"/>
+    <line x1="82" y1="45" x2="112" y2="32"/>
+    <line x1="45" y1="67" x2="67" y2="54"/>
+    <line x1="50" y1="75" x2="66" y2="66"/>
+  </g>
 </svg>

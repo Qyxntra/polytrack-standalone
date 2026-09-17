@@ -1,101 +1,118 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <rect width="128" height="128" fill="#000000"/>
-  
   <defs>
-    <linearGradient id="f1_body" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff4d4d"/>
-      <stop offset="50%" stop-color="#e11d48"/>
-      <stop offset="100%" stop-color="#9f1239"/>
+    <radialGradient id="f1_shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.85"/>
+      <stop offset="60%" stop-color="#050510" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="f1_body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#991b1b"/>
     </linearGradient>
-    <linearGradient id="f1_white" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="60%" stop-color="#f1f5f9"/>
-      <stop offset="100%" stop-color="#94a3b8"/>
+    <linearGradient id="f1_body_light" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="100%" stop-color="#dc2626"/>
     </linearGradient>
-    <linearGradient id="f1_metal" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#64748b"/>
-      <stop offset="100%" stop-color="#334155"/>
+    <linearGradient id="f1_body_dark" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7f1d1d"/>
+      <stop offset="100%" stop-color="#450a0a"/>
     </linearGradient>
-    <linearGradient id="f1_tire" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#334155"/>
-      <stop offset="100%" stop-color="#0f172a"/>
-    </linearGradient>
-    <linearGradient id="f1_rim" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#cbd5e1"/>
-      <stop offset="100%" stop-color="#475569"/>
+    <linearGradient id="f1_tire" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#27272a"/>
+      <stop offset="100%" stop-color="#09090b"/>
     </linearGradient>
   </defs>
 
-  <!-- Rear Left Wheel (back layer) -->
-  <ellipse cx="88" cy="58" rx="8" ry="15" fill="#090d16"/>
-  <ellipse cx="88" cy="58" rx="4.5" ry="9" fill="#334155"/>
+  <!-- Ground Shadow -->
+  <ellipse cx="62" cy="92" rx="44" ry="14" fill="url(#f1_shadow)"/>
 
-  <!-- Rear Wing Mount & Assembly -->
-  <polygon points="86,43 114,46 110,52 82,49" fill="#e11d48"/>
-  <polygon points="86,43 114,46 113,44 85,41" fill="#ffffff"/> <!-- Top highlight -->
-  <!-- Right endplate -->
-  <polygon points="114,46 118,42 118,59 114,57" fill="#ff4d4d"/>
-  <!-- Left endplate -->
-  <polygon points="86,43 82,39 82,54 86,52" fill="#9f1239"/>
+  <!-- Rear Left Wheel (Occluded) -->
+  <polygon points="48,58 54,55 58,67 52,70" fill="#18181b"/>
+  <polygon points="54,55 56,54 60,65 58,67" fill="#27272a"/>
+
+  <!-- Rear Wing Assembly -->
   <!-- Pylons -->
-  <polygon points="94,48 96,62 93,62 91,48" fill="#1e293b"/>
-  <polygon points="102,50 104,64 101,64 99,50" fill="#1e293b"/>
-
-  <!-- Front Left Wheel (back layer) -->
-  <ellipse cx="36" cy="72" rx="7" ry="13" fill="#090d16"/>
-  <ellipse cx="36" cy="72" rx="4" ry="8" fill="#334155"/>
-
-  <!-- Main Chassis (Underbody / Floor) -->
-  <polygon points="18,92 42,98 94,80 108,74 104,68 38,78" fill="#090d16"/>
-
-  <!-- Main Chassis Body (Low-poly Facets) -->
-  <polygon points="102,64 76,68 34,87 20,93 18,90 40,74 72,59 98,58" fill="url(#f1_body)"/>
-  
-  <!-- White Center Livery Stripe -->
-  <polygon points="96,60 74,64 40,76 21,91 19,89 41,73 70,58 92,57" fill="url(#f1_white)"/>
-  
-  <!-- Sidepod Right -->
-  <polygon points="62,67 88,67 85,81 58,77" fill="url(#f1_body)"/>
-  <polygon points="58,77 85,81 83,86 56,81" fill="#9f1239"/> <!-- Sidepod under-edge -->
-  <polygon points="62,67 88,67 86,65 64,65" fill="#ff4d4d"/> <!-- Sidepod top facet -->
-  <!-- Sidepod Air Radiator Intake -->
-  <polygon points="58,67 62,67 58,77 54,76" fill="#000000"/>
-
-  <!-- Cockpit Opening & Halo -->
-  <polygon points="66,61 76,63 72,69 62,66" fill="#000000"/>
-  <!-- Yellow Helmet -->
-  <circle cx="69" cy="62" r="4" fill="#facc15"/>
-  <ellipse cx="69" cy="62" rx="3" ry="1.5" fill="#000000"/> <!-- Visor -->
-  <!-- Halo Arch -->
-  <polygon points="59,64 73,61 76,64 63,67" fill="#f1f5f9" stroke="#0f172a" stroke-width="0.8"/>
-  <polygon points="68,61 71,55 74,55 71,61" fill="#cbd5e1"/> <!-- Halo center pillar -->
-
-  <!-- Engine Airbox Induction Scoop -->
-  <polygon points="76,56 84,58 81,64 74,62" fill="#e11d48"/>
-  <polygon points="75,56 77,53 80,55 78,58" fill="#000000"/> <!-- Airbox Hole -->
-  <polygon points="77,53 85,55 84,58 76,56" fill="#ffffff"/> <!-- Scoop highlight -->
-
-  <!-- Front Wing Assembly -->
-  <polygon points="12,89 38,101 34,106 8,94" fill="#e11d48"/>
-  <polygon points="12,89 38,101 36,99 14,87" fill="#ffffff"/> <!-- Top blade highlight -->
+  <polygon points="88,54 91,52 91,64 88,65" fill="#18181b"/>
+  <polygon points="94,51 97,49 97,61 94,62" fill="#18181b"/>
+  <!-- Main Aerofoil -->
+  <polygon points="84,47 112,36 113,41 85,52" fill="url(#f1_body_light)"/>
+  <polygon points="85,52 113,41 113,43 85,54" fill="url(#f1_body_dark)"/>
+  <!-- White DRS Flap -->
+  <polygon points="86,44 110,34 110,37 86,47" fill="#f4f4f5"/>
   <!-- Left Endplate -->
-  <polygon points="8,94 6,88 6,97 8,99" fill="#9f1239"/>
+  <polygon points="82,44 86,42 86,58 82,59" fill="#b91c1c"/>
   <!-- Right Endplate -->
-  <polygon points="38,101 42,96 42,105 38,107" fill="#ff4d4d"/>
-  <!-- Front Wing Flaps -->
-  <polygon points="15,92 36,102 34,104 13,94" fill="url(#f1_white)"/>
+  <polygon points="110,33 114,31 114,46 110,48" fill="url(#f1_body_light)"/>
+  <polygon points="114,31 115,32 115,47 114,46" fill="#ffffff"/>
 
-  <!-- Front Suspension Wishbone Carbon Rods -->
-  <line x1="26" y1="88" x2="33" y2="79" stroke="#cbd5e1" stroke-width="2"/>
-  <line x1="28" y1="91" x2="48" y2="94" stroke="#cbd5e1" stroke-width="2"/>
+  <!-- Rear Right Wheel -->
+  <polygon points="95,60 107,54 116,71 104,78" fill="url(#f1_tire)"/>
+  <polygon points="107,54 111,52 120,68 116,71" fill="#09090b"/>
+  <polygon points="95,60 99,58 108,74 104,78" fill="#3f3f46"/>
+  <!-- Rim & Centerlock -->
+  <polygon points="99,61 105,58 111,69 105,73" fill="#27272a"/>
+  <ellipse cx="105" cy="65" rx="3.8" ry="5.5" fill="#18181b" transform="rotate(-15 105 65)"/>
+  <circle cx="105" cy="65" r="1.6" fill="#ef4444"/>
 
-  <!-- Front Right Wheel (foreground) -->
-  <ellipse cx="48" cy="95" rx="9" ry="16" fill="url(#f1_tire)"/>
-  <ellipse cx="48" cy="95" rx="5.5" ry="10" fill="url(#f1_rim)"/>
-  <circle cx="48" cy="95" r="2.5" fill="#090d16"/>
+  <!-- Engine Cover & Shark Fin -->
+  <polygon points="74,55 94,46 94,51 74,62" fill="#ffffff"/>
+  <polygon points="74,62 94,51 95,61 75,70" fill="url(#f1_body_dark)"/>
+  <polygon points="66,59 83,51 91,63 72,73" fill="url(#f1_body)"/>
 
-  <!-- Rear Right Wheel (foreground) -->
-  <ellipse cx="104" cy="74" rx="11" ry="19" fill="url(#f1_tire)"/>
-  <ellipse cx="104" cy="74" rx="6.5" ry="12" fill="url(#f1_rim)"/>
-  <circle cx="104" cy="74" r="3" fill="#090d16"/>
+  <!-- Front Left Wheel (Occluded) -->
+  <polygon points="34,68 39,66 43,76 38,78" fill="#18181b"/>
+  <polygon points="39,66 41,65 45,74 43,76" fill="#27272a"/>
+
+  <!-- Cockpit, Halo & Driver Helmet -->
+  <polygon points="54,64 68,58 72,66 58,74" fill="#09090b"/>
+  <!-- Driver Helmet -->
+  <ellipse cx="65" cy="63" rx="3.5" ry="4" fill="#f4f4f5"/>
+  <polygon points="62,62 66,60 67,64 63,65" fill="#f59e0b"/>
+  <!-- Halo Structure -->
+  <polygon points="57,63 66,55 68,56 59,65" fill="#18181b"/>
+  <polygon points="66,55 71,61 69,62 65,56" fill="#27272a"/>
+
+  <!-- Sidepods & Radiators -->
+  <polygon points="56,66 64,62 72,72 63,75" fill="url(#f1_body_dark)"/>
+  <polygon points="60,73 78,64 85,74 66,83" fill="url(#f1_body_light)"/>
+  <!-- Black Radiator Air Intake -->
+  <polygon points="57,71 62,69 65,76 59,78" fill="#09090b"/>
+  <polygon points="58,72 61,70 63,75 60,76" fill="#27272a"/>
+  <polygon points="66,83 85,74 87,78 67,85" fill="url(#f1_body_dark)"/>
+
+  <!-- Nosecone & Monocoque -->
+  <polygon points="24,87 56,67 64,72 32,93" fill="url(#f1_body_light)"/>
+  <!-- White Center Stripe & Number -->
+  <polygon points="26,86 54,68 58,71 29,90" fill="#ffffff"/>
+  <polygon points="32,93 64,72 66,82 33,97" fill="url(#f1_body)"/>
+  <polygon points="33,97 66,82 64,86 32,99" fill="url(#f1_body_dark)"/>
+
+  <!-- Front Wing -->
+  <polygon points="10,96 40,82 44,88 13,103" fill="url(#f1_body_dark)"/>
+  <polygon points="12,95 38,82 40,85 14,99" fill="url(#f1_body_light)"/>
+  <polygon points="14,98 36,87 38,90 16,101" fill="#ffffff"/>
+  <!-- Wing Endplates -->
+  <polygon points="8,93 12,91 14,102 10,104" fill="url(#f1_body_light)"/>
+  <polygon points="38,80 42,78 45,87 41,89" fill="url(#f1_body_light)"/>
+
+  <!-- Suspension Wishbones -->
+  <line x1="37" y1="87" x2="46" y2="85" stroke="#27272a" stroke-width="1.8"/>
+  <line x1="39" y1="90" x2="50" y2="90" stroke="#27272a" stroke-width="1.5"/>
+
+  <!-- Front Right Wheel -->
+  <polygon points="42,81 53,75 62,94 50,101" fill="url(#f1_tire)"/>
+  <polygon points="53,75 57,73 66,91 62,94" fill="#09090b"/>
+  <polygon points="42,81 46,79 55,97 50,101" fill="#3f3f46"/>
+  <polygon points="45,82 51,79 58,92 52,96" fill="#27272a"/>
+  <ellipse cx="51" cy="87" rx="3.8" ry="5.8" fill="#18181b" transform="rotate(-18 51 87)"/>
+  <circle cx="51" cy="87" r="1.6" fill="#ef4444"/>
+  <circle cx="51" cy="87" r="0.7" fill="#ffffff"/>
+
+  <!-- Specular Highlights -->
+  <g stroke="#ffffff" stroke-width="0.6" stroke-opacity="0.55" fill="none">
+    <line x1="26" y1="86" x2="54" y2="68"/>
+    <line x1="84" y1="47" x2="112" y2="36"/>
+    <line x1="60" y1="73" x2="78" y2="64"/>
+  </g>
 </svg>

@@ -1,68 +1,121 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <rect width="128" height="128" fill="#000000"/>
-
   <defs>
-    <linearGradient id="plane_body" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#d8b4fe"/>
-      <stop offset="40%" stop-color="#a855f7"/>
-      <stop offset="100%" stop-color="#581c87"/>
+    <radialGradient id="plane_shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0.85"/>
+      <stop offset="65%" stop-color="#7e22ce" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="plane_body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#6b21a8"/>
     </linearGradient>
-    <linearGradient id="plane_metal" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#94a3b8"/>
+    <linearGradient id="plane_body_light" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#9333ea"/>
     </linearGradient>
-    <linearGradient id="plane_glow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#e879f9"/>
+    <linearGradient id="plane_body_dark" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#581c87"/>
+      <stop offset="100%" stop-color="#3b0764"/>
+    </linearGradient>
+    <linearGradient id="plane_flame" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f43f5e"/>
+      <stop offset="50%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#ffffff"/>
     </linearGradient>
   </defs>
 
-  <!-- Rear Left Wheel (back) [WHEEL 2 OF 3] -->
-  <ellipse cx="88" cy="64" rx="8" ry="15" fill="#090d16"/>
-  <ellipse cx="88" cy="64" rx="4.5" ry="9" fill="#475569"/>
+  <!-- Ground Shadow -->
+  <ellipse cx="64" cy="96" rx="48" ry="14" fill="url(#plane_shadow)"/>
 
-  <!-- Left Swept Delta Wing (Back) -->
-  <polygon points="54,64 96,40 100,44 68,68" fill="#581c87"/>
-  <polygon points="96,40 101,38 101,43 99,44" fill="#38bdf8"/> <!-- Cyan winglet left -->
+  <!-- Left Swept Wing (Far Side) -->
+  <polygon points="26,62 60,56 64,63 20,74" fill="url(#plane_body_dark)"/>
+  <!-- Wingtip Pod & Port Navigation Light (Red) -->
+  <polygon points="18,72 23,70 24,76 19,78" fill="#1e1b4b"/>
+  <circle cx="21" cy="74" r="1.2" fill="#ef4444"/>
 
-  <!-- Twin Canted V-Tails (Fighter Fins) -->
-  <polygon points="86,50 98,31 102,33 94,54" fill="#9333ea"/>
-  <polygon points="98,31 104,30 104,33 102,33" fill="#d8b4fe"/> <!-- Fin tip -->
-  <polygon points="94,55 107,35 111,37 103,59" fill="#7e22ce"/>
+  <!-- Twin Canted Vertical Fins (V-Tail) -->
+  <!-- Left Fin -->
+  <polygon points="76,32 84,27 88,48 80,54" fill="url(#plane_body_dark)"/>
+  <line x1="84" y1="27" x2="88" y2="48" stroke="#c084fc" stroke-width="0.8"/>
+  <!-- Right Fin -->
+  <polygon points="94,22 102,17 106,38 98,44" fill="url(#plane_body_light)"/>
+  <line x1="102" y1="17" x2="106" y2="38" stroke="#ffffff" stroke-width="0.8"/>
 
-  <!-- Glowing Plasma Jet Thrusters -->
-  <ellipse cx="107" cy="60" rx="4.5" ry="7" fill="#020617"/>
-  <ellipse cx="107" cy="60" rx="3" ry="5" fill="url(#plane_glow)"/>
+  <!-- Dual Glowing Jet Exhausts (Afterburners) -->
+  <ellipse cx="98" cy="54" rx="4.5" ry="6" fill="#1e1b4b" stroke="#38bdf8" stroke-width="1.2"/>
+  <ellipse cx="98" cy="54" rx="2.8" ry="4" fill="url(#plane_flame)"/>
+  <ellipse cx="104" cy="50" rx="4.5" ry="6" fill="#1e1b4b" stroke="#38bdf8" stroke-width="1.2"/>
+  <ellipse cx="104" cy="50" rx="2.8" ry="4" fill="url(#plane_flame)"/>
 
-  <!-- Supersonic Needle Nosecone & Pitot Probe -->
-  <line x1="6" y1="94" x2="18" y2="88" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
-  <polygon points="18,88 38,77 44,83 22,93" fill="url(#plane_metal)"/>
+  <!-- Fuselage Aft Section -->
+  <polygon points="68,58 92,44 102,54 77,69" fill="url(#plane_body)"/>
+  <polygon points="77,69 102,54 105,62 80,78" fill="url(#plane_body_dark)"/>
 
-  <!-- Fuselage Body -->
-  <polygon points="34,78 66,64 98,60 105,66 76,77 40,85" fill="url(#plane_body)"/>
-  
-  <!-- Stealth Fighter Bubble Canopy -->
-  <polygon points="38,77 56,62 74,64 54,76" fill="#090d16" stroke="#c084fc" stroke-width="1"/>
-  <polygon points="42,74 54,64 66,65 52,73" fill="#38bdf8" opacity="0.65"/> <!-- Glare -->
+  <!-- Cockpit Bubble Canopy -->
+  <polygon points="45,63 67,49 76,57 53,72" fill="#0f172a"/>
+  <!-- Tinted Violet Glass Reflection -->
+  <polygon points="48,63 64,52 67,56 51,68" fill="#c084fc" fill-opacity="0.45"/>
+  <!-- Pilot Silhouette inside cockpit -->
+  <ellipse cx="62" cy="58" rx="2.5" ry="3" fill="#18181b"/>
+  <circle cx="62" cy="57" r="1" fill="#38bdf8"/>
 
-  <!-- Right Swept Delta Wing (Foreground) -->
-  <polygon points="48,83 84,103 90,101 68,77" fill="url(#plane_body)"/>
-  <!-- Chrome Leading Edge -->
-  <polygon points="48,83 84,103 86,104 48,85" fill="url(#plane_metal)"/>
-  <!-- Wingtip Sensor Pod & Red Nav Light -->
-  <polygon points="84,103 89,97 91,99 90,101" fill="#ef4444"/>
+  <!-- Supersonic Caret Side Air Intakes -->
+  <polygon points="55,70 69,61 76,71 61,81" fill="url(#plane_body)"/>
+  <polygon points="58,68 64,64 66,71 60,74" fill="#020617"/>
+  <polygon points="59,69 63,66 64,70 61,72" fill="#38bdf8" stroke-width="0.5"/>
 
-  <!-- Supersonic Air Intake -->
-  <polygon points="56,75 68,71 66,77 54,79" fill="#000000"/>
-  <polygon points="68,71 70,71 68,77 66,77" fill="#d8b4fe"/>
+  <!-- Forward Canards (Foreplanes) -->
+  <polygon points="32,77 46,68 49,73 34,82" fill="url(#plane_body_light)"/>
+  <line x1="32" y1="77" x2="46" y2="68" stroke="#ffffff" stroke-width="1"/>
 
-  <!-- TRICYCLE WHEEL 1: NOSE WHEEL (CENTER STRUT) -->
-  <line x1="30" y1="87" x2="30" y2="96" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
-  <ellipse cx="30" cy="98" rx="6" ry="10" fill="#090d16"/>
-  <ellipse cx="30" cy="98" rx="3.5" ry="6" fill="#cbd5e1"/>
+  <!-- Needle Radome Nose & Pitot Probe -->
+  <polygon points="12,88 44,68 54,75 22,96" fill="url(#plane_body_light)"/>
+  <!-- Pitot Needle Probe -->
+  <line x1="4" y1="93" x2="13" y2="87" stroke="#f4f4f5" stroke-width="1.8"/>
+  <!-- Radome Nose Tip (Black Carbon) -->
+  <polygon points="12,88 18,84 21,88 15,92" fill="#09090b"/>
 
-  <!-- TRICYCLE WHEEL 3: REAR RIGHT WHEEL (FOREGROUND) -->
-  <ellipse cx="100" cy="74" rx="10" ry="17" fill="#090d16"/>
-  <ellipse cx="100" cy="74" rx="6" ry="10.5" fill="#cbd5e1"/>
-  <circle cx="100" cy="74" r="2.5" fill="#7e22ce"/>
+  <!-- Right Swept Double-Delta Main Wing -->
+  <polygon points="48,74 88,48 108,74 65,96" fill="url(#plane_body_light)"/>
+  <!-- Chrome Wing Leading Edge -->
+  <line x1="48" y1="74" x2="88" y2="48" stroke="#ffffff" stroke-width="1.8"/>
+  <!-- Wing Bottom Flank (Shadow) -->
+  <polygon points="65,96 108,74 107,78 64,100" fill="url(#plane_body_dark)"/>
+  <!-- Starboard Navigation Light (Cyan) & Pod -->
+  <polygon points="106,72 110,69 112,74 107,76" fill="#1e1b4b"/>
+  <circle cx="109" cy="73" r="1.4" fill="#38bdf8"/>
+
+  <!-- EXACTLY 3 WHEELS TRICYCLE LANDING GEAR -->
+  <!-- 1. SINGLE FRONT CENTER NOSE LANDING GEAR WHEEL -->
+  <!-- Steel Oleo Vertical Strut -->
+  <line x1="28" y1="91" x2="28" y2="99" stroke="#71717a" stroke-width="2.4"/>
+  <line x1="28" y1="93" x2="32" y2="97" stroke="#a1a1aa" stroke-width="1.2"/> <!-- Scissor Link -->
+  <!-- Nose Wheel & Tire -->
+  <ellipse cx="28" cy="102" rx="3.5" ry="5.5" fill="#18181b" transform="rotate(-18 28 102)"/>
+  <ellipse cx="28" cy="102" rx="1.8" ry="3" fill="#71717a" transform="rotate(-18 28 102)"/>
+  <circle cx="28" cy="102" r="0.8" fill="#ffffff"/>
+
+  <!-- 2. REAR LEFT MAIN WHEEL (Far Side) -->
+  <polygon points="54,77 60,73 64,84 58,88" fill="#18181b"/>
+  <polygon points="60,73 62,71 66,81 64,84" fill="#27272a"/>
+
+  <!-- 3. REAR RIGHT MAIN WHEEL (Forefront Large Wheel) -->
+  <!-- Oleo Strut -->
+  <line x1="88" y1="76" x2="88" y2="84" stroke="#71717a" stroke-width="2.2"/>
+  <!-- Tire & Rim -->
+  <polygon points="80,78 91,72 99,90 88,97" fill="#27272a"/>
+  <polygon points="91,72 95,70 103,87 99,90" fill="#09090b"/>
+  <polygon points="80,78 84,76 92,93 88,97" fill="#3f3f46"/>
+  <polygon points="83,79 89,75 95,89 89,93" fill="#18181b"/>
+  <ellipse cx="89" cy="84" rx="3.8" ry="5.6" fill="#09090b" transform="rotate(-18 89 84)"/>
+  <circle cx="89" cy="84" r="2" fill="#c084fc"/>
+  <circle cx="89" cy="84" r="0.8" fill="#ffffff"/>
+
+  <!-- Specular Highlights & Glints -->
+  <g stroke="#ffffff" stroke-width="0.6" stroke-opacity="0.6" fill="none">
+    <line x1="14" y1="87" x2="44" y2="68"/>
+    <line x1="45" y1="63" x2="67" y2="49"/>
+    <line x1="55" y1="70" x2="69" y2="61"/>
+  </g>
 </svg>
