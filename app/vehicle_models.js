@@ -3,21 +3,21 @@
  * Developed for PolyTrack Standalone
  * 
  * Vehicles:
- * - f1: Formule 1 (Original) - Vitesse Pure & Appui Maximal
- * - voiture: Sportive GT - ⚡ Turbo Nitro Boost (+35 km/h avec [Espace] ou [Shift])
- * - camionnette: Le Mastodonte (Van/Pick-up) - 🛡️ Blindage Lourd & Super Grip (Ground Slam)
- * - avion: Aéroplane (Planeur) - ✈️ Vol Plané Aérodynamique (3 roues: 1 avant, 2 arrière)
+ * - f1: Formule 1 (Original) - Vitesse Pure & Appui Maximal (4 roues)
+ * - voiture: Sportive GT - ⚡ Turbo Nitro Boost (+40 km/h avec [Espace] ou [Shift]) (4 roues)
+ * - camionnette: Le Mastodonte (Pick-up / Offroad) - 🛡️ Blindage Lourd & Super Grip (Ground Slam) (4 roues)
+ * - avion: Aéroplane (Jet Glider) - ✈️ Vol Plané Aérodynamique (3 roues: 1 avant centre, 2 arrière)
  */
 (function() {
   'use strict';
 
-  // --- 1. DENSE SOLID GEOMETRY BUILDER (NO HOLES / NO SEE-THROUGH SURFACES) ---
+  // --- 1. ADVANCED SOLID LOW-POLY GEOMETRY BUILDER ---
   function createSolidBuilder(THREE, B) {
-    // 4 Material Buckets:
-    // 0: Main (Primary vehicle paint)
-    // 1: AirIntake (Dark intake grilles, canopy, windows, tires)
-    // 2: Metal (Chrome frame, splitters, landing gear strut, rims)
-    // 3: BrakeLight (Rear lights, jet thruster glow)
+    // 4 Contiguous Material Buckets:
+    // 0: Main (Car primary paint color)
+    // 1: AirIntake (Dark intake grilles, tinted glass, canopy, tires)
+    // 2: Metal (Chrome frame, splitters, diffusers, exhausts, struts, rims)
+    // 3: BrakeLight (Rear lights, jet thruster afterburners, tow hooks)
     const buckets = { 0: [], 1: [], 2: [], 3: [] };
 
     const baseChassis = B && B.models && B.models.chassis;
@@ -39,43 +39,96 @@
       addTri(p1, p3, p4, norm, matIdx);
     }
 
-    // Complete 6-faced solid box with strict outward normals
+    // 1. Complete 6-faced solid box with strict outward normals
     function addBox(x1, y1, z1, x2, y2, z2, matIdx) {
       const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
       const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
       const minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
 
-      // Front (+Z)
-      addQuad([minX, minY, maxZ], [maxX, minY, maxZ], [maxX, maxY, maxZ], [minX, maxY, maxZ], [0, 0, 1], matIdx);
-      // Back (-Z)
-      addQuad([maxX, minY, minZ], [minX, minY, minZ], [minX, maxY, minZ], [maxX, maxY, minZ], [0, 0, -1], matIdx);
-      // Top (+Y)
-      addQuad([minX, maxY, maxZ], [maxX, maxY, maxZ], [maxX, maxY, minZ], [minX, maxY, minZ], [0, 1, 0], matIdx);
-      // Bottom (-Y)
-      addQuad([minX, minY, minZ], [maxX, minY, minZ], [maxX, minY, maxZ], [minX, minY, maxZ], [0, -1, 0], matIdx);
-      // Right (+X)
-      addQuad([maxX, minY, maxZ], [maxX, minY, minZ], [maxX, maxY, minZ], [maxX, maxY, maxZ], [1, 0, 0], matIdx);
-      // Left (-X)
-      addQuad([minX, minY, minZ], [minX, minY, maxZ], [minX, maxY, maxZ], [minX, maxY, minZ], [-1, 0, 0], matIdx);
+      addQuad([minX, minY, maxZ], [maxX, minY, maxZ], [maxX, maxY, maxZ], [minX, maxY, maxZ], [0, 0, 1], matIdx);  // Front (+Z)
+      addQuad([maxX, minY, minZ], [minX, minY, minZ], [minX, maxY, minZ], [maxX, maxY, minZ], [0, 0, -1], matIdx); // Back (-Z)
+      addQuad([minX, maxY, maxZ], [maxX, maxY, maxZ], [maxX, maxY, minZ], [minX, maxY, minZ], [0, 1, 0], matIdx);  // Top (+Y)
+      addQuad([minX, minY, minZ], [maxX, minY, minZ], [maxX, minY, maxZ], [minX, minY, maxZ], [0, -1, 0], matIdx); // Bottom (-Y)
+      addQuad([maxX, minY, maxZ], [maxX, minY, minZ], [maxX, maxY, minZ], [maxX, maxY, maxZ], [1, 0, 0], matIdx);  // Right (+X)
+      addQuad([minX, minY, minZ], [minX, minY, maxZ], [minX, maxY, maxZ], [minX, maxY, minZ], [-1, 0, 0], matIdx); // Left (-X)
     }
 
-    // Complete 6-faced sloped box (e.g. hood, windshield, fastback)
+    // 2. Complete 6-faced sloped box along Z (hood, windshield, roof rake)
     function addSlopedBox(minX, maxX, minY, maxYFront, maxYBack, minZ, maxZ, matIdx) {
-      // Bottom (-Y)
-      addQuad([minX, minY, minZ], [maxX, minY, minZ], [maxX, minY, maxZ], [minX, minY, maxZ], [0, -1, 0], matIdx);
-      // Front (+Z)
-      addQuad([minX, minY, maxZ], [maxX, minY, maxZ], [maxX, maxYFront, maxZ], [minX, maxYFront, maxZ], [0, 0, 1], matIdx);
-      // Back (-Z)
-      addQuad([maxX, minY, minZ], [minX, minY, minZ], [minX, maxYBack, minZ], [maxX, maxYBack, minZ], [0, 0, -1], matIdx);
-      // Top (+Y Sloped)
+      addQuad([minX, minY, minZ], [maxX, minY, minZ], [maxX, minY, maxZ], [minX, minY, maxZ], [0, -1, 0], matIdx); // Bottom
+      addQuad([minX, minY, maxZ], [maxX, minY, maxZ], [maxX, maxYFront, maxZ], [minX, maxYFront, maxZ], [0, 0, 1], matIdx); // Front
+      addQuad([maxX, minY, minZ], [minX, minY, minZ], [minX, maxYBack, minZ], [maxX, maxYBack, minZ], [0, 0, -1], matIdx); // Back
       const dy = maxYBack - maxYFront;
       const dz = maxZ - minZ;
       const len = Math.hypot(dy, dz) || 1;
-      addQuad([minX, maxYFront, maxZ], [maxX, maxYFront, maxZ], [maxX, maxYBack, minZ], [minX, maxYBack, minZ], [0, dz / len, dy / len], matIdx);
-      // Right (+X)
-      addQuad([maxX, minY, maxZ], [maxX, minY, minZ], [maxX, maxYBack, minZ], [maxX, maxYFront, maxZ], [1, 0, 0], matIdx);
-      // Left (-X)
-      addQuad([minX, minY, minZ], [minX, minY, maxZ], [minX, maxYFront, maxZ], [minX, maxYBack, minZ], [-1, 0, 0], matIdx);
+      addQuad([minX, maxYFront, maxZ], [maxX, maxYFront, maxZ], [maxX, maxYBack, minZ], [minX, maxYBack, minZ], [0, dz / len, dy / len], matIdx); // Top
+      addQuad([maxX, minY, maxZ], [maxX, minY, minZ], [maxX, maxYBack, minZ], [maxX, maxYFront, maxZ], [1, 0, 0], matIdx); // Right
+      addQuad([minX, minY, minZ], [minX, minY, maxZ], [minX, maxYFront, maxZ], [minX, maxYBack, minZ], [-1, 0, 0], matIdx); // Left
+    }
+
+    // 3. Complete 6-faced tapered box (different widths at front and back)
+    function addTaperedBox(x1Front, x2Front, x1Back, x2Back, minY, maxY, minZ, maxZ, matIdx) {
+      addQuad([x1Back, minY, minZ], [x2Back, minY, minZ], [x2Front, minY, maxZ], [x1Front, minY, maxZ], [0, -1, 0], matIdx); // Bottom
+      addQuad([x1Front, maxY, maxZ], [x2Front, maxY, maxZ], [x2Back, maxY, minZ], [x1Back, maxY, minZ], [0, 1, 0], matIdx);  // Top
+      addQuad([x1Front, minY, maxZ], [x2Front, minY, maxZ], [x2Front, maxY, maxZ], [x1Front, maxY, maxZ], [0, 0, 1], matIdx); // Front
+      addQuad([x2Back, minY, minZ], [x1Back, minY, minZ], [x1Back, maxY, minZ], [x2Back, maxY, minZ], [0, 0, -1], matIdx);   // Back
+      const dxR = x2Back - x2Front;
+      const dzR = maxZ - minZ;
+      const lenR = Math.hypot(dxR, dzR) || 1;
+      addQuad([x2Front, minY, maxZ], [x2Back, minY, minZ], [x2Back, maxY, minZ], [x2Front, maxY, maxZ], [dzR / lenR, 0, -dxR / lenR], matIdx); // Right
+      const dxL = x1Back - x1Front;
+      const dzL = maxZ - minZ;
+      const lenL = Math.hypot(dxL, dzL) || 1;
+      addQuad([x1Back, minY, minZ], [x1Front, minY, maxZ], [x1Front, maxY, maxZ], [x1Back, maxY, minZ], [-dzL / lenL, 0, dxL / lenL], matIdx); // Left
+    }
+
+    // 4. Faceted cylinder along Z (exhaust pipes, spotlights, jet thrusters)
+    function addCylinderZ(cx, cy, czFront, czBack, rFront, rBack, segments, matIdx) {
+      const minZ = Math.min(czFront, czBack);
+      const maxZ = Math.max(czFront, czBack);
+      const step = (Math.PI * 2) / segments;
+      for (let i = 0; i < segments; i++) {
+        const a1 = i * step;
+        const a2 = (i + 1) * step;
+        const x1F = cx + Math.cos(a1) * rFront, y1F = cy + Math.sin(a1) * rFront;
+        const x2F = cx + Math.cos(a2) * rFront, y2F = cy + Math.sin(a2) * rFront;
+        const x1B = cx + Math.cos(a1) * rBack,  y1B = cy + Math.sin(a1) * rBack;
+        const x2B = cx + Math.cos(a2) * rBack,  y2B = cy + Math.sin(a2) * rBack;
+
+        const midAngle = (a1 + a2) / 2;
+        const norm = [Math.cos(midAngle), Math.sin(midAngle), 0];
+        addQuad([x1F, y1F, maxZ], [x2F, y2F, maxZ], [x2B, y2B, minZ], [x1B, y1B, minZ], norm, matIdx);
+        addTri([cx, cy, maxZ], [x1F, y1F, maxZ], [x2F, y2F, maxZ], [0, 0, 1], matIdx);
+        addTri([cx, cy, minZ], [x2B, y2B, minZ], [x1B, y1B, minZ], [0, 0, -1], matIdx);
+      }
+    }
+
+    // 5. Faceted wheel along X axis (for airplane front landing wheel)
+    function addWheelX(cx, cy, cz, radius, width, matRim, matTire) {
+      const halfW = width / 2;
+      const xLeft = cx - halfW;
+      const xRight = cx + halfW;
+      const rimRadius = radius * 0.55;
+      const segments = 8;
+      const step = (Math.PI * 2) / segments;
+
+      for (let i = 0; i < segments; i++) {
+        const a1 = i * step;
+        const a2 = (i + 1) * step;
+        const z1 = cz + Math.cos(a1) * radius, y1 = cy + Math.sin(a1) * radius;
+        const z2 = cz + Math.cos(a2) * radius, y2 = cy + Math.sin(a2) * radius;
+        const z1R = cz + Math.cos(a1) * rimRadius, y1R = cy + Math.sin(a1) * rimRadius;
+        const z2R = cz + Math.cos(a2) * rimRadius, y2R = cy + Math.sin(a2) * rimRadius;
+
+        const midAngle = (a1 + a2) / 2;
+        const treadNorm = [0, Math.sin(midAngle), Math.cos(midAngle)];
+
+        addQuad([xLeft, y1, z1], [xRight, y1, z1], [xRight, y2, z2], [xLeft, y2, z2], treadNorm, matTire);
+        addQuad([xLeft, y2, z2], [xLeft, y1, z1], [xLeft, y1R, z1R], [xLeft, y2R, z2R], [-1, 0, 0], matTire);
+        addQuad([xRight, y1, z1], [xRight, y2, z2], [xRight, y2R, z2R], [xRight, y1R, z1R], [1, 0, 0], matTire);
+        addTri([xLeft, cy, cz], [xLeft, y1R, z1R], [xLeft, y2R, z2R], [-1, 0, 0], matRim);
+        addTri([xRight, cy, cz], [xRight, y2R, z2R], [xRight, y1R, z1R], [1, 0, 0], matRim);
+      }
     }
 
     function build() {
@@ -89,7 +142,6 @@
       const groups = [];
       let currentOffset = 0;
 
-      // Group triangles cleanly into contiguous ranges per material index
       for (let m = 0; m <= 3; m++) {
         const list = buckets[m] || [];
         const count = list.length * 3;
@@ -118,127 +170,238 @@
       return geom;
     }
 
-    return { addBox, addSlopedBox, build };
+    return { addBox, addSlopedBox, addTaperedBox, addCylinderZ, addWheelX, build };
   }
 
-  // --- 2. 3D VEHICLE GEOMETRIES ---
+  // --- 2. DETAILED LOW-POLY VEHICLE GEOMETRIES ---
 
-  // 1. Sportive GT (Voiture)
+  // 1. Sportive GT (Voiture Supercar)
   function buildSportsCarGeometry(THREE, B) {
     const b = createSolidBuilder(THREE, B);
+
     // Full underbody belly pan (Metal)
-    b.addBox(-0.68, -0.32, -1.85, 0.68, -0.22, 1.60, 2);
-    // Front splitter & bumper
-    b.addBox(-0.66, -0.28, 1.55, 0.66, -0.16, 1.72, 2);
-    b.addBox(-0.46, -0.22, 1.62, 0.46, -0.06, 1.68, 1);
-    b.addBox(-0.65, -0.16, 1.48, 0.65, 0.02, 1.66, 0);
-    // Headlights
-    b.addBox(-0.62, -0.06, 1.52, -0.42, 0.04, 1.64, 2);
-    b.addBox(0.42, -0.06, 1.52, 0.62, 0.04, 1.64, 2);
-    // Hood & scoop
-    b.addSlopedBox(-0.48, 0.48, -0.20, 0.02, 0.12, 0.40, 1.52, 0);
-    b.addBox(-0.25, 0.03, 0.70, 0.25, 0.06, 1.15, 1);
-    // Front Fenders
-    b.addBox(-0.68, -0.20, 0.40, -0.48, 0.08, 1.52, 0);
-    b.addBox(0.48, -0.20, 0.40, 0.68, 0.08, 1.52, 0);
-    // Cabin & Windshield
-    b.addSlopedBox(-0.46, 0.46, 0.06, 0.12, 0.38, 0.05, 0.42, 1);
-    b.addBox(-0.46, 0.34, -0.65, 0.46, 0.40, 0.06, 0);
-    b.addBox(-0.68, -0.22, -0.65, -0.46, 0.12, 0.40, 0);
-    b.addBox(0.46, -0.22, -0.65, 0.68, 0.12, 0.40, 0);
-    b.addBox(-0.48, 0.12, -0.60, -0.45, 0.34, 0.05, 1);
-    b.addBox(0.45, 0.12, -0.60, 0.48, 0.34, 0.05, 1);
-    b.addSlopedBox(-0.46, 0.46, 0.08, 0.38, 0.12, -1.15, -0.65, 1);
+    b.addBox(-0.68, -0.32, -1.85, 0.68, -0.22, 1.62, 2);
+
+    // Aerodynamic front chin splitter with corner winglets
+    b.addBox(-0.68, -0.28, 1.62, 0.68, -0.20, 1.82, 2);
+    b.addBox(-0.70, -0.25, 1.70, -0.66, -0.10, 1.84, 2); // left winglet
+    b.addBox(0.66, -0.25, 1.70, 0.70, -0.10, 1.84, 2);  // right winglet
+
+    // Triple front grille & brake cooling ducts
+    b.addBox(-0.35, -0.22, 1.68, 0.35, -0.05, 1.78, 1);  // center radiator intake
+    b.addBox(-0.64, -0.22, 1.65, -0.40, -0.08, 1.76, 1); // left brake duct
+    b.addBox(0.40, -0.22, 1.65, 0.64, -0.08, 1.76, 1);  // right brake duct
+    b.addBox(-0.66, -0.08, 1.52, 0.66, 0.04, 1.72, 0);   // front bumper cover
+
+    // Slanted modern LED headlights
+    b.addBox(-0.62, -0.04, 1.60, -0.42, 0.05, 1.74, 2);
+    b.addBox(0.42, -0.04, 1.60, 0.62, 0.05, 1.74, 2);
+    b.addBox(-0.60, 0.02, 1.62, -0.44, 0.06, 1.75, 0); // eyebrow accent
+    b.addBox(0.44, 0.02, 1.62, 0.60, 0.06, 1.75, 0);
+
+    // Sculpted hood with heat extractor vent & center power spine
+    b.addSlopedBox(-0.46, 0.46, -0.18, 0.02, 0.14, 0.35, 1.62, 0);
+    b.addBox(-0.24, 0.04, 0.75, 0.24, 0.08, 1.15, 1); // hood vent
+    b.addBox(-0.04, 0.05, 0.40, 0.04, 0.10, 1.50, 0); // center ridge
+
+    // Flared front wheel arches / fenders
+    b.addBox(-0.68, -0.20, 0.40, -0.46, 0.12, 1.60, 0);
+    b.addBox(0.46, -0.20, 0.40, 0.68, 0.12, 1.60, 0);
+
+    // Side skirts with rear ground-effect aero fins
+    b.addBox(-0.68, -0.28, -0.80, -0.56, -0.20, 0.45, 2);
+    b.addBox(0.56, -0.28, -0.80, 0.68, -0.20, 0.45, 2);
+    b.addBox(-0.70, -0.28, -0.82, -0.66, -0.12, -0.68, 2); // left skirt fin
+    b.addBox(0.66, -0.28, -0.82, 0.70, -0.12, -0.68, 2);  // right skirt fin
+
+    // Cockpit & Windshield
+    b.addSlopedBox(-0.44, 0.44, 0.08, 0.14, 0.40, 0.05, 0.45, 1); // windshield
+    b.addBox(-0.44, 0.36, -0.65, 0.44, 0.41, 0.05, 0);            // roof panel
+    b.addBox(-0.08, 0.41, -0.35, 0.08, 0.46, -0.05, 1);           // roof intake snorkel
+
+    // Doors & Side Windows
+    b.addBox(-0.68, -0.20, -0.65, -0.44, 0.14, 0.40, 0);
+    b.addBox(0.44, -0.20, -0.65, 0.68, 0.14, 0.40, 0);
+    b.addBox(-0.46, 0.14, -0.60, -0.43, 0.36, 0.05, 1);
+    b.addBox(0.43, 0.14, -0.60, 0.46, 0.36, 0.05, 1);
+
+    // Aerodynamic side mirrors
+    b.addBox(-0.64, 0.15, 0.25, -0.48, 0.22, 0.35, 2);
+    b.addBox(0.48, 0.15, 0.25, 0.64, 0.22, 0.35, 2);
+
+    // Supercar side air intakes behind doors
+    b.addBox(-0.68, -0.05, -0.75, -0.48, 0.20, -0.35, 1);
+    b.addBox(0.48, -0.05, -0.75, 0.68, 0.20, -0.35, 1);
+
+    // Muscular flared rear wheel arches
+    b.addBox(-0.72, -0.20, -1.65, -0.50, 0.15, -0.75, 0);
+    b.addBox(0.50, -0.20, -1.65, 0.72, 0.15, -0.75, 0);
+
+    // Fastback rear window with cooling louvers
+    b.addSlopedBox(-0.44, 0.44, 0.10, 0.40, 0.12, -1.15, -0.65, 1);
+    b.addBox(-0.35, 0.24, -0.85, 0.35, 0.27, -0.75, 0); // louver 1
+    b.addBox(-0.35, 0.16, -1.05, 0.35, 0.19, -0.95, 0); // louver 2
+
     // Rear deck & bumper
-    b.addBox(-0.50, -0.10, -1.65, 0.50, 0.10, -1.15, 0);
-    b.addBox(-0.68, -0.22, -1.70, -0.50, 0.10, -0.65, 0);
-    b.addBox(0.50, -0.22, -1.70, 0.68, 0.10, -0.65, 0);
-    b.addBox(-0.66, -0.25, -1.82, 0.66, -0.02, -1.65, 0);
-    b.addBox(-0.62, -0.32, -1.88, 0.62, -0.20, -1.65, 2);
-    b.addBox(-0.60, -0.05, -1.84, -0.35, 0.05, -1.78, 3);
-    b.addBox(0.35, -0.05, -1.84, 0.60, 0.05, -1.78, 3);
-    // GT Wing
-    b.addBox(-0.66, 0.24, -1.86, 0.66, 0.28, -1.64, 2);
-    b.addBox(-0.42, 0.08, -1.76, -0.38, 0.25, -1.68, 2);
-    b.addBox(0.38, 0.08, -1.76, 0.42, 0.25, -1.68, 2);
-    b.addBox(-0.68, 0.20, -1.88, -0.65, 0.32, -1.62, 2);
-    b.addBox(0.65, 0.20, -1.88, 0.68, 0.32, -1.62, 2);
+    b.addBox(-0.52, -0.08, -1.72, 0.52, 0.12, -1.15, 0);
+    b.addBox(-0.68, -0.25, -1.85, 0.68, -0.02, -1.68, 0);
+
+    // Full-width modern LED lightbar (BrakeLight)
+    b.addBox(-0.66, -0.02, -1.86, 0.66, 0.06, -1.80, 3);
+
+    // Rear racing diffuser with 4 vertical fins
+    b.addBox(-0.66, -0.32, -1.90, 0.66, -0.18, -1.65, 2);
+    b.addBox(-0.45, -0.32, -1.92, -0.42, -0.16, -1.68, 2);
+    b.addBox(-0.15, -0.32, -1.92, -0.12, -0.16, -1.68, 2);
+    b.addBox(0.12, -0.32, -1.92, 0.15, -0.16, -1.68, 2);
+    b.addBox(0.42, -0.32, -1.92, 0.45, -0.16, -1.68, 2);
+
+    // Dual Twin-Tip Titanium Exhausts
+    b.addCylinderZ(-0.25, -0.15, -1.94, -1.82, 0.05, 0.05, 6, 2);
+    b.addCylinderZ(0.25, -0.15, -1.94, -1.82, 0.05, 0.05, 6, 2);
+
+    // GT Swan-Neck Wing
+    b.addBox(-0.70, 0.28, -1.88, 0.70, 0.33, -1.62, 2);  // wing blade
+    b.addBox(-0.38, 0.08, -1.78, -0.34, 0.30, -1.68, 2); // left mount
+    b.addBox(0.34, 0.08, -1.78, 0.38, 0.30, -1.68, 2);  // right mount
+    b.addBox(-0.72, 0.22, -1.90, -0.68, 0.38, -1.60, 2); // left endplate
+    b.addBox(0.68, 0.22, -1.90, 0.72, 0.38, -1.60, 2);  // right endplate
+
     return b.build();
   }
 
-  // 2. Le Mastodonte (Camionnette)
+  // 2. Le Mastodonte (Camionnette Off-Road & Blindage)
   function buildVanGeometry(THREE, B) {
     const b = createSolidBuilder(THREE, B);
+
     // Heavy underbody belly plate (Metal)
     b.addBox(-0.70, -0.32, -1.85, 0.70, -0.20, 1.62, 2);
-    // Heavy steel bullbar & grille
-    b.addBox(-0.66, -0.28, 1.62, 0.66, 0.15, 1.76, 2);
-    b.addBox(-0.52, -0.16, 1.56, 0.52, 0.16, 1.64, 1);
-    b.addBox(-0.64, -0.02, 1.57, -0.48, 0.14, 1.63, 2);
-    b.addBox(0.48, -0.02, 1.57, 0.64, 0.14, 1.63, 2);
-    // Hood & Fenders
-    b.addBox(-0.52, -0.05, 0.48, 0.52, 0.20, 1.58, 0);
-    b.addBox(-0.72, -0.22, 0.48, -0.50, 0.18, 1.58, 0);
-    b.addBox(0.50, -0.22, 0.48, 0.72, 0.18, 1.58, 0);
-    // High Truck Cabin
-    b.addSlopedBox(-0.52, 0.52, 0.16, 0.20, 0.50, 0.20, 0.48, 1);
-    b.addBox(-0.54, 0.48, -0.68, 0.54, 0.55, 0.22, 0);
-    b.addBox(-0.72, -0.22, -0.68, -0.50, 0.24, 0.48, 0);
+
+    // Heavy steel push bumper & bullbar with angled skid plate
+    b.addSlopedBox(-0.55, 0.55, -0.32, -0.22, 0.05, 1.65, 1.82, 2);
+    b.addBox(-0.68, -0.25, 1.68, 0.68, 0.10, 1.82, 2);
+    b.addBox(-0.30, -0.28, 1.80, -0.22, -0.20, 1.86, 3); // recovery tow hook L
+    b.addBox(0.22, -0.28, 1.80, 0.30, -0.20, 1.86, 3);  // recovery tow hook R
+
+    // Triple-slat heavy truck grille
+    b.addBox(-0.50, -0.10, 1.60, 0.50, 0.18, 1.68, 1);
+    b.addBox(-0.46, -0.05, 1.62, 0.46, -0.01, 1.69, 2); // slat 1
+    b.addBox(-0.46, 0.04, 1.62, 0.46, 0.08, 1.69, 2);  // slat 2
+    b.addBox(-0.46, 0.13, 1.62, 0.46, 0.17, 1.69, 2);  // slat 3
+
+    // Dual projector headlights
+    b.addBox(-0.66, 0.00, 1.62, -0.48, 0.18, 1.70, 2);
+    b.addBox(0.48, 0.00, 1.62, 0.66, 0.18, 1.70, 2);
+
+    // Heavy hood with center power dome
+    b.addBox(-0.52, -0.05, 0.48, 0.52, 0.22, 1.60, 0);
+    b.addBox(-0.25, 0.20, 0.65, 0.25, 0.26, 1.45, 0); // power dome
+
+    // Chunky squared fender flares
+    b.addBox(-0.74, -0.22, 0.48, -0.50, 0.20, 1.60, 0);
+    b.addBox(0.50, -0.22, 0.48, 0.74, 0.20, 1.60, 0);
+
+    // Off-road Snorkel on right A-pillar
+    b.addBox(0.52, 0.05, 0.30, 0.60, 0.52, 0.38, 1);
+    b.addBox(0.50, 0.48, 0.32, 0.64, 0.56, 0.48, 1);
+
+    // Tubular rock sliders / side steps
+    b.addBox(-0.72, -0.28, -0.80, -0.58, -0.22, 0.60, 2);
+    b.addBox(0.58, -0.28, -0.80, 0.72, -0.22, 0.60, 2);
+
+    // Upright Truck Cabin
+    b.addSlopedBox(-0.52, 0.52, 0.18, 0.22, 0.52, 0.18, 0.48, 1); // windshield
+    b.addBox(-0.56, 0.50, 0.16, 0.56, 0.56, 0.26, 0);            // sun visor
+    b.addBox(-0.54, 0.48, -0.68, 0.54, 0.55, 0.22, 0);            // cab roof
+    b.addBox(-0.72, -0.22, -0.68, -0.50, 0.24, 0.48, 0);          // doors
     b.addBox(0.50, -0.22, -0.68, 0.72, 0.24, 0.48, 0);
-    b.addBox(-0.55, 0.22, -0.62, -0.50, 0.48, 0.20, 1);
+    b.addBox(-0.55, 0.22, -0.62, -0.50, 0.48, 0.20, 1);          // side windows
     b.addBox(0.50, 0.22, -0.62, 0.55, 0.48, 0.20, 1);
-    b.addBox(-0.50, 0.22, -0.70, 0.50, 0.48, -0.66, 1);
-    // Enclosed Van Cargo
-    b.addBox(-0.72, -0.22, -1.82, -0.50, 0.32, -0.68, 0);
-    b.addBox(0.50, -0.22, -1.82, 0.72, 0.32, -0.68, 0);
-    b.addBox(-0.54, 0.48, -1.80, 0.54, 0.54, -0.68, 0);
-    b.addBox(-0.52, -0.20, -1.80, 0.52, 0.48, -0.68, 0);
+    b.addBox(-0.50, 0.22, -0.70, 0.50, 0.48, -0.66, 1);          // cab rear window
+
+    // Roof expedition rack with 4 quad spotlights
+    b.addBox(-0.56, 0.54, -0.60, 0.56, 0.60, 0.15, 2); // rack basket
+    b.addCylinderZ(-0.36, 0.60, 0.20, 0.10, 0.05, 0.05, 6, 2);
+    b.addCylinderZ(-0.12, 0.60, 0.20, 0.10, 0.05, 0.05, 6, 2);
+    b.addCylinderZ(0.12, 0.60, 0.20, 0.10, 0.05, 0.05, 6, 2);
+    b.addCylinderZ(0.36, 0.60, 0.20, 0.10, 0.05, 0.05, 6, 2);
+
+    // Enclosed Armored Van Cargo Box
+    b.addBox(-0.74, -0.22, -1.80, -0.50, 0.30, -0.68, 0);
+    b.addBox(0.50, -0.22, -1.80, 0.74, 0.30, -0.68, 0);
+    b.addBox(-0.54, 0.48, -1.82, 0.54, 0.55, -0.68, 0);
+    b.addBox(-0.52, -0.20, -1.82, 0.52, 0.48, -0.68, 0);
     b.addBox(-0.68, -0.22, -1.86, 0.68, 0.32, -1.78, 0);
-    b.addBox(-0.70, -0.32, -1.92, 0.70, -0.18, -1.80, 2);
-    b.addBox(-0.68, -0.05, -1.87, -0.56, 0.25, -1.81, 3);
-    b.addBox(0.56, -0.05, -1.87, 0.68, 0.25, -1.81, 3);
-    // Roof Rack
-    b.addBox(-0.56, 0.54, -1.65, 0.56, 0.60, 0.15, 2);
+
+    // Heavy rear step bumper & tow hitch
+    b.addBox(-0.72, -0.32, -1.94, 0.72, -0.16, -1.80, 2);
+    b.addBox(-0.08, -0.30, -1.98, 0.08, -0.20, -1.88, 2);
+
+    // Vertical rear taillights (BrakeLight)
+    b.addBox(-0.70, -0.08, -1.88, -0.56, 0.28, -1.82, 3);
+    b.addBox(0.56, -0.08, -1.88, 0.70, 0.28, -1.82, 3);
+
     return b.build();
   }
 
-  // 3. Aéroplane / Planeur (Avion: 3 Roues - 1 avant centre, 2 arrière)
+  // 3. Aéroplane (Jet Glider - Tricycle 3 Roues: 1 avant centre, 2 arrière)
   function buildPlaneGeometry(THREE, B) {
     const b = createSolidBuilder(THREE, B);
+
     // Fuselage belly pan
     b.addBox(-0.40, -0.26, -1.75, 0.40, -0.15, 1.60, 2);
-    // Pointed Nose cone
-    b.addBox(-0.25, -0.22, 1.58, 0.25, 0.05, 1.95, 1);
-    b.addBox(-0.38, -0.24, 0.85, 0.38, 0.14, 1.60, 0);
-    // Cockpit Canopy
-    b.addSlopedBox(-0.28, 0.28, 0.08, 0.12, 0.40, 0.35, 0.90, 1);
-    b.addBox(-0.28, 0.36, -0.25, 0.28, 0.42, 0.38, 1);
-    b.addSlopedBox(-0.28, 0.28, 0.08, 0.40, 0.14, -0.72, -0.22, 1);
-    // Mid & Aft Fuselage
+
+    // Supersonic needle nosecone with pitot probe
+    b.addTaperedBox(-0.15, 0.15, -0.28, 0.28, -0.20, 0.06, 1.60, 2.05, 1);
+    b.addBox(-0.02, -0.08, 2.05, 0.02, -0.04, 2.18, 2); // pitot probe
+    b.addTaperedBox(-0.28, 0.28, -0.40, 0.40, -0.22, 0.16, 0.85, 1.60, 0);
+
+    // Dual forward canards (front control wings)
+    b.addBox(-0.68, -0.05, 0.95, -0.38, -0.01, 1.25, 0);
+    b.addBox(0.38, -0.05, 0.95, 0.68, -0.01, 1.25, 0);
+
+    // Single Front Center Landing Gear & 8-Sided Wheel (EXACTLY 3 WHEELS CONFIG)
+    b.addBox(-0.035, -0.36, 1.28, 0.035, -0.15, 1.38, 2); // metal strut
+    b.addBox(-0.05, -0.28, 1.36, 0.05, -0.20, 1.44, 2);   // scissor link
+    b.addWheelX(0, -0.33, 1.35, 0.12, 0.14, 2, 1);        // 8-sided nose wheel (rim=2, tire=1)
+
+    // Jet Cockpit Canopy with Arch
+    b.addSlopedBox(-0.28, 0.28, 0.08, 0.14, 0.42, 0.30, 0.95, 1);
+    b.addBox(-0.28, 0.38, -0.30, 0.28, 0.44, 0.32, 1);
+    b.addSlopedBox(-0.28, 0.28, 0.08, 0.42, 0.14, -0.75, -0.28, 1);
+    b.addBox(-0.29, 0.10, -0.02, 0.29, 0.44, 0.04, 0); // canopy arch
+
+    // Supersonic side air intakes (F-22 style)
+    b.addBox(-0.52, -0.20, -0.20, -0.36, 0.10, 0.45, 1);
+    b.addBox(0.36, -0.20, -0.20, 0.52, 0.10, 0.45, 1);
+
+    // Mid & aft fuselage
     b.addBox(-0.42, -0.24, -0.75, 0.42, 0.18, 0.88, 0);
     b.addBox(-0.34, -0.20, -1.75, 0.34, 0.14, -0.75, 0);
-    // Swept Glider Wings
-    b.addBox(-1.90, -0.15, -0.55, -0.38, -0.03, 0.35, 0);
-    b.addBox(0.38, -0.15, -0.55, 1.90, -0.03, 0.35, 0);
-    b.addBox(-1.90, -0.16, 0.32, -0.38, -0.02, 0.42, 2);
-    b.addBox(0.38, -0.16, 0.32, 1.90, -0.02, 0.42, 2);
-    b.addBox(-1.92, -0.15, -0.58, -1.86, 0.40, 0.15, 2);
-    b.addBox(1.86, -0.15, -0.58, 1.92, 0.40, 0.15, 2);
-    // Vertical Tailfin & Stabilizers
-    b.addBox(-0.06, 0.12, -1.78, 0.06, 0.75, -1.05, 0);
-    b.addBox(-0.07, 0.70, -1.78, 0.07, 0.78, -1.15, 2);
-    b.addBox(-0.85, 0.02, -1.80, -0.15, 0.10, -1.30, 0);
-    b.addBox(0.15, 0.02, -1.80, 0.85, 0.10, -1.30, 0);
-    // Jet Thrusters
-    b.addBox(-0.32, -0.22, -1.98, -0.10, 0.02, -1.60, 2);
-    b.addBox(0.10, -0.22, -1.98, 0.32, 0.02, -1.60, 2);
-    b.addBox(-0.30, -0.20, -2.00, -0.12, 0.00, -1.96, 3);
-    b.addBox(0.12, -0.20, -2.00, 0.30, 0.00, -1.96, 3);
 
-    // Front Nose Landing Gear & Wheel (3 Wheels Setup: 1 front center wheel, 2 rear wheels)
-    b.addBox(-0.04, -0.38, 1.25, 0.04, -0.18, 1.45, 2); // Metal strut
-    b.addBox(-0.08, -0.44, 1.25, 0.08, -0.24, 1.45, 2); // Central wheel rim
-    b.addBox(-0.11, -0.46, 1.22, 0.11, -0.22, 1.48, 1); // Central tire
+    // Swept delta wings with chrome leading edges & winglets
+    b.addTaperedBox(-2.05, -0.38, -1.85, -0.38, -0.15, -0.02, -0.65, 0.35, 0);
+    b.addTaperedBox(0.38, 2.05, 0.38, 1.85, -0.15, -0.02, -0.65, 0.35, 0);
+    b.addBox(-2.05, -0.16, 0.28, -0.38, -0.01, 0.38, 2); // chrome leading edge L
+    b.addBox(0.38, -0.16, 0.28, 2.05, -0.01, 0.38, 2);  // chrome leading edge R
+    b.addBox(-2.08, -0.15, -0.65, -2.00, 0.42, 0.10, 2); // winglet L
+    b.addBox(2.00, -0.15, -0.65, 2.08, 0.42, 0.10, 2);  // winglet R
+
+    // Twin Canted Vertical Fins (V-tail fighter jet)
+    b.addSlopedBox(-0.35, -0.22, 0.10, 0.10, 0.72, -1.82, -1.15, 0);
+    b.addSlopedBox(0.22, 0.35, 0.10, 0.10, 0.72, -1.82, -1.15, 0);
+    b.addBox(-0.36, 0.68, -1.82, -0.21, 0.74, -1.25, 2); // fin tip trim L
+    b.addBox(0.21, 0.68, -1.82, 0.36, 0.74, -1.25, 2);  // fin tip trim R
+
+    // Horizontal tailplanes / elevators
+    b.addBox(-0.95, 0.00, -1.85, -0.30, 0.08, -1.35, 0);
+    b.addBox(0.30, 0.00, -1.85, 0.95, 0.08, -1.35, 0);
+
+    // Dual Vectoring Jet Thruster Nozzles & Glowing Afterburners
+    b.addCylinderZ(-0.24, -0.08, -1.65, -1.96, 0.14, 0.13, 8, 2);
+    b.addCylinderZ(0.24, -0.08, -1.65, -1.96, 0.14, 0.13, 8, 2);
+    b.addCylinderZ(-0.24, -0.08, -1.95, -2.00, 0.10, 0.09, 8, 3); // afterburner core L
+    b.addCylinderZ(0.24, -0.08, -1.95, -2.00, 0.10, 0.09, 8, 3);  // afterburner core R
 
     return b.build();
   }
@@ -265,7 +428,7 @@
       icon: '🚗',
       color: '#3b82f6',
       powerName: '⚡ Turbo Nitro Boost',
-      powerDesc: 'Boost explosif (+35 km/h) avec [Espace] ou [Shift] ! Se recharge en roulant.',
+      powerDesc: 'Boost explosif (+40 km/h) avec [Espace] ou [Shift] ! Se recharge en roulant.',
       speedStat: '★★★★☆',
       accelStat: '★★★★★',
       gripStat:  '★★★★☆',
@@ -286,7 +449,7 @@
     },
     avion: {
       id: 'avion',
-      name: 'Aéroplane (Planeur)',
+      name: 'Aéroplane (Jet Glider)',
       subtitle: 'Tricycle 3 Roues & Vol Plané',
       icon: '✈️',
       color: '#10b981',
@@ -337,7 +500,7 @@
 
     const clonedMats = baseMats.map(m => {
       const c = m.clone();
-      c.side = 2; // DoubleSide (THREE.DoubleSide)
+      c.side = 2; // DoubleSide
       c.shadowSide = 2;
       c.transparent = false;
       c.depthWrite = true;
@@ -474,7 +637,6 @@
     hudEl: null
   };
 
-  // Keyboard listener for Space and Shift (Nitro Boost)
   window.addEventListener('keydown', e => {
     if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
       powerState.nitroKeyHeld = true;
@@ -897,5 +1059,5 @@
   } else {
     setupGarageWatcher();
   }
-  console.log('[PolyTrack] Vehicle Models & Powers Engine Loaded. Active Vehicle:', window._selectedVehicleType);
+  console.log('[PolyTrack] Enhanced Vehicle Models & Powers Engine Loaded. Active Vehicle:', window._selectedVehicleType);
 })();
