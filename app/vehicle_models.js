@@ -6,31 +6,45 @@
  * - f1: Formule 1 (Original) - Vitesse Pure & Appui Maximal
  * - voiture: Sportive GT - ⚡ Turbo Nitro Boost (+35 km/h avec [Espace] ou [Shift])
  * - camionnette: Le Mastodonte (Van/Pick-up) - 🛡️ Blindage Lourd & Super Grip (Ground Slam)
- * - avion: Aéroplane (Planeur) - ✈️ Vol Plané Aérodynamique (plane dans les airs)
+ * - avion: Aéroplane (Planeur) - ✈️ Vol Plané Aérodynamique (3 roues: 1 avant, 2 arrière)
  */
 (function() {
   'use strict';
 
-  // --- 1. GEOMETRY BUILDER HELPER ---
-  function createGeometryBuilder(THREE, B) {
-    const positions = [];
-    const normals = [];
-    const uvs = [];
-    const groups = [];
+  // --- 1. DENSE SOLID GEOMETRY BUILDER (NO HOLES / NO SEE-THROUGH SURFACES) ---
+  function createSolidBuilder(THREE, B) {
+    // 4 Material Buckets:
+    // 0: Main (Primary vehicle paint)
+    // 1: AirIntake (Dark intake grilles, canopy, windows, tires)
+    // 2: Metal (Chrome frame, splitters, landing gear strut, rims)
+    // 3: BrakeLight (Rear lights, jet thruster glow)
+    const buckets = { 0: [], 1: [], 2: [], 3: [] };
 
     const baseChassis = B && B.models && B.models.chassis;
     const BufferGeometryClass = (THREE && (THREE.BufferGeometry || THREE.LoY)) || (baseChassis && baseChassis.geometry && baseChassis.geometry.constructor);
     const BufferAttributeClass = (THREE && (THREE.BufferAttribute || THREE.THS)) || (baseChassis && baseChassis.geometry && baseChassis.geometry.attributes.position && baseChassis.geometry.attributes.position.constructor);
 
-    function addQuad(p1, p2, p3, p4, norm, matIdx) {
-      const start = positions.length / 3;
-      positions.push(...p1, ...p2, ...p3, ...p1, ...p3, ...p4);
-      for (let i = 0; i < 6; i++) normals.push(...norm);
-      uvs.push(0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1);
-      groups.push({ start, count: 6, matIdx });
+    function addTri(p1, p2, p3, norm, matIdx) {
+      const b = buckets[matIdx] || (buckets[matIdx] = []);
+      b.push({
+        positions: [p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]],
+        normals: [norm[0], norm[1], norm[2], norm[0], norm[1], norm[2], norm[0], norm[1], norm[2]],
+        uvs: [0, 0, 1, 0, 0.5, 1]
+      });
     }
 
-    function addBox(minX, minY, minZ, maxX, maxY, maxZ, matIdx) {
+    // CCW Quad with explicit outward normal
+    function addQuad(p1, p2, p3, p4, norm, matIdx) {
+      addTri(p1, p2, p3, norm, matIdx);
+      addTri(p1, p3, p4, norm, matIdx);
+    }
+
+    // Complete 6-faced solid box with strict outward normals
+    function addBox(x1, y1, z1, x2, y2, z2, matIdx) {
+      const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+      const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+      const minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
+
       // Front (+Z)
       addQuad([minX, minY, maxZ], [maxX, minY, maxZ], [maxX, maxY, maxZ], [minX, maxY, maxZ], [0, 0, 1], matIdx);
       // Back (-Z)
@@ -45,117 +59,187 @@
       addQuad([minX, minY, minZ], [minX, minY, maxZ], [minX, maxY, maxZ], [minX, maxY, minZ], [-1, 0, 0], matIdx);
     }
 
-    function addWedgeZ(minX, maxX, minY, maxY, zFront, zBack, matIdx) {
-      addQuad([minX, minY, zFront], [maxX, minY, zFront], [maxX, minY + (maxY - minY)*0.4, zFront], [minX, minY + (maxY - minY)*0.4, zFront], [0, 0, 1], matIdx);
-      const ny = (zFront - zBack);
-      const nz = (maxY - minY);
-      const len = Math.hypot(ny, nz) || 1;
-      addQuad([minX, minY + (maxY - minY)*0.4, zFront], [maxX, minY + (maxY - minY)*0.4, zFront], [maxX, maxY, zBack], [minX, maxY, zBack], [0, ny/len, nz/len], matIdx);
-      addQuad([minX, minY, zBack], [maxX, minY, zBack], [maxX, minY, zFront], [minX, minY, zFront], [0, -1, 0], matIdx);
-      addQuad([maxX, minY, zFront], [maxX, minY, zBack], [maxX, maxY, zBack], [maxX, minY + (maxY - minY)*0.4, zFront], [1, 0, 0], matIdx);
-      addQuad([minX, minY, zBack], [minX, minY, zFront], [minX, minY + (maxY - minY)*0.4, zFront], [minX, maxY, zBack], [-1, 0, 0], matIdx);
+    // Complete 6-faced sloped box (e.g. hood, windshield, fastback)
+    function addSlopedBox(minX, maxX, minY, maxYFront, maxYBack, minZ, maxZ, matIdx) {
+      // Bottom (-Y)
+      addQuad([minX, minY, minZ], [maxX, minY, minZ], [maxX, minY, maxZ], [minX, minY, maxZ], [0, -1, 0], matIdx);
+      // Front (+Z)
+      addQuad([minX, minY, maxZ], [maxX, minY, maxZ], [maxX, maxYFront, maxZ], [minX, maxYFront, maxZ], [0, 0, 1], matIdx);
+      // Back (-Z)
+      addQuad([maxX, minY, minZ], [minX, minY, minZ], [minX, maxYBack, minZ], [maxX, maxYBack, minZ], [0, 0, -1], matIdx);
+      // Top (+Y Sloped)
+      const dy = maxYBack - maxYFront;
+      const dz = maxZ - minZ;
+      const len = Math.hypot(dy, dz) || 1;
+      addQuad([minX, maxYFront, maxZ], [maxX, maxYFront, maxZ], [maxX, maxYBack, minZ], [minX, maxYBack, minZ], [0, dz / len, dy / len], matIdx);
+      // Right (+X)
+      addQuad([maxX, minY, maxZ], [maxX, minY, minZ], [maxX, maxYBack, minZ], [maxX, maxYFront, maxZ], [1, 0, 0], matIdx);
+      // Left (-X)
+      addQuad([minX, minY, minZ], [minX, minY, maxZ], [minX, maxYFront, maxZ], [minX, maxYBack, minZ], [-1, 0, 0], matIdx);
     }
 
     function build() {
       if (!BufferGeometryClass || !BufferAttributeClass) {
         throw new Error('Three.js BufferGeometry or BufferAttribute class not found');
       }
-      const geom = new BufferGeometryClass();
-      geom.setAttribute('position', new BufferAttributeClass(new Float32Array(positions), 3));
-      geom.setAttribute('normal', new BufferAttributeClass(new Float32Array(normals), 3));
-      geom.setAttribute('uv', new BufferAttributeClass(new Float32Array(uvs), 2));
 
-      let currentMat = -1;
-      let startIdx = 0;
-      let count = 0;
+      const flatPositions = [];
+      const flatNormals = [];
+      const flatUvs = [];
+      const groups = [];
+      let currentOffset = 0;
+
+      // Group triangles cleanly into contiguous ranges per material index
+      for (let m = 0; m <= 3; m++) {
+        const list = buckets[m] || [];
+        const count = list.length * 3;
+        if (count > 0) {
+          groups.push({ start: currentOffset, count: count, materialIndex: m });
+          for (let i = 0; i < list.length; i++) {
+            const t = list[i];
+            flatPositions.push(...t.positions);
+            flatNormals.push(...t.normals);
+            flatUvs.push(...t.uvs);
+          }
+          currentOffset += count;
+        }
+      }
+
+      const geom = new BufferGeometryClass();
+      geom.setAttribute('position', new BufferAttributeClass(new Float32Array(flatPositions), 3));
+      geom.setAttribute('normal', new BufferAttributeClass(new Float32Array(flatNormals), 3));
+      geom.setAttribute('uv', new BufferAttributeClass(new Float32Array(flatUvs), 2));
 
       for (let i = 0; i < groups.length; i++) {
         const g = groups[i];
-        if (g.matIdx !== currentMat) {
-          if (count > 0) geom.addGroup(startIdx, count, currentMat);
-          currentMat = g.matIdx;
-          startIdx = g.start;
-          count = g.count;
-        } else {
-          count += g.count;
-        }
+        geom.addGroup(g.start, g.count, g.materialIndex);
       }
-      if (count > 0) geom.addGroup(startIdx, count, currentMat);
 
-      if (geom.computeVertexNormals) geom.computeVertexNormals();
       return geom;
     }
 
-    return { addBox, addWedgeZ, addQuad, build };
+    return { addBox, addSlopedBox, build };
   }
 
   // --- 2. 3D VEHICLE GEOMETRIES ---
+
+  // 1. Sportive GT (Voiture)
   function buildSportsCarGeometry(THREE, B) {
-    const b = createGeometryBuilder(THREE, B);
-    b.addBox(-0.56, -0.32, -1.80, 0.56, -0.22, 1.55, 2);
-    b.addBox(-0.58, -0.32, 1.55, 0.58, -0.20, 1.72, 2);
-    b.addWedgeZ(-0.54, 0.54, -0.22, 0.05, 1.58, 0.50, 0);
-    b.addBox(-0.50, -0.20, 1.57, 0.50, -0.02, 1.62, 1);
-    b.addWedgeZ(-0.50, 0.50, 0.05, 0.38, 0.50, -0.20, 1);
-    b.addBox(-0.48, 0.35, -0.85, 0.48, 0.40, -0.20, 0);
-    b.addBox(0.48, 0.05, -0.80, 0.50, 0.36, -0.18, 1);
-    b.addBox(-0.50, 0.05, -0.80, -0.48, 0.36, -0.18, 1);
-    b.addWedgeZ(-0.48, 0.48, 0.05, 0.38, -0.85, -1.30, 1);
-    b.addBox(-0.56, -0.22, -1.75, -0.48, 0.06, 0.50, 0);
-    b.addBox(0.48, -0.22, -1.75, 0.56, 0.06, 0.50, 0);
-    b.addBox(-0.52, -0.08, -1.78, 0.52, 0.06, -1.30, 0);
-    b.addBox(-0.55, 0.22, -1.82, 0.55, 0.26, -1.65, 2);
-    b.addBox(-0.35, 0.06, -1.74, -0.32, 0.22, -1.70, 2);
-    b.addBox(0.32, 0.06, -1.74, 0.35, 0.22, -1.70, 2);
-    b.addBox(-0.56, -0.32, -1.85, 0.56, -0.12, -1.76, 2);
-    b.addBox(-0.48, -0.02, -1.83, 0.48, 0.05, -1.80, 3);
+    const b = createSolidBuilder(THREE, B);
+    // Full underbody belly pan (Metal)
+    b.addBox(-0.68, -0.32, -1.85, 0.68, -0.22, 1.60, 2);
+    // Front splitter & bumper
+    b.addBox(-0.66, -0.28, 1.55, 0.66, -0.16, 1.72, 2);
+    b.addBox(-0.46, -0.22, 1.62, 0.46, -0.06, 1.68, 1);
+    b.addBox(-0.65, -0.16, 1.48, 0.65, 0.02, 1.66, 0);
+    // Headlights
+    b.addBox(-0.62, -0.06, 1.52, -0.42, 0.04, 1.64, 2);
+    b.addBox(0.42, -0.06, 1.52, 0.62, 0.04, 1.64, 2);
+    // Hood & scoop
+    b.addSlopedBox(-0.48, 0.48, -0.20, 0.02, 0.12, 0.40, 1.52, 0);
+    b.addBox(-0.25, 0.03, 0.70, 0.25, 0.06, 1.15, 1);
+    // Front Fenders
+    b.addBox(-0.68, -0.20, 0.40, -0.48, 0.08, 1.52, 0);
+    b.addBox(0.48, -0.20, 0.40, 0.68, 0.08, 1.52, 0);
+    // Cabin & Windshield
+    b.addSlopedBox(-0.46, 0.46, 0.06, 0.12, 0.38, 0.05, 0.42, 1);
+    b.addBox(-0.46, 0.34, -0.65, 0.46, 0.40, 0.06, 0);
+    b.addBox(-0.68, -0.22, -0.65, -0.46, 0.12, 0.40, 0);
+    b.addBox(0.46, -0.22, -0.65, 0.68, 0.12, 0.40, 0);
+    b.addBox(-0.48, 0.12, -0.60, -0.45, 0.34, 0.05, 1);
+    b.addBox(0.45, 0.12, -0.60, 0.48, 0.34, 0.05, 1);
+    b.addSlopedBox(-0.46, 0.46, 0.08, 0.38, 0.12, -1.15, -0.65, 1);
+    // Rear deck & bumper
+    b.addBox(-0.50, -0.10, -1.65, 0.50, 0.10, -1.15, 0);
+    b.addBox(-0.68, -0.22, -1.70, -0.50, 0.10, -0.65, 0);
+    b.addBox(0.50, -0.22, -1.70, 0.68, 0.10, -0.65, 0);
+    b.addBox(-0.66, -0.25, -1.82, 0.66, -0.02, -1.65, 0);
+    b.addBox(-0.62, -0.32, -1.88, 0.62, -0.20, -1.65, 2);
+    b.addBox(-0.60, -0.05, -1.84, -0.35, 0.05, -1.78, 3);
+    b.addBox(0.35, -0.05, -1.84, 0.60, 0.05, -1.78, 3);
+    // GT Wing
+    b.addBox(-0.66, 0.24, -1.86, 0.66, 0.28, -1.64, 2);
+    b.addBox(-0.42, 0.08, -1.76, -0.38, 0.25, -1.68, 2);
+    b.addBox(0.38, 0.08, -1.76, 0.42, 0.25, -1.68, 2);
+    b.addBox(-0.68, 0.20, -1.88, -0.65, 0.32, -1.62, 2);
+    b.addBox(0.65, 0.20, -1.88, 0.68, 0.32, -1.62, 2);
     return b.build();
   }
 
+  // 2. Le Mastodonte (Camionnette)
   function buildVanGeometry(THREE, B) {
-    const b = createGeometryBuilder(THREE, B);
-    b.addBox(-0.60, -0.32, -1.80, 0.60, -0.20, 1.55, 2);
-    b.addBox(-0.62, -0.30, 1.55, 0.62, 0.02, 1.70, 2);
-    b.addBox(-0.56, -0.20, 0.70, 0.56, 0.12, 1.55, 0);
-    b.addBox(-0.45, -0.18, 1.56, 0.45, 0.10, 1.59, 1);
-    b.addWedgeZ(-0.52, 0.52, 0.12, 0.50, 0.70, 0.30, 1);
-    b.addBox(-0.54, 0.48, -0.70, 0.54, 0.54, 0.30, 0);
-    b.addBox(-0.35, 0.54, 0.10, 0.35, 0.58, 0.25, 1);
-    b.addBox(0.48, -0.20, -0.70, 0.56, 0.48, 0.70, 0);
-    b.addBox(-0.56, -0.20, -0.70, -0.48, 0.48, 0.70, 0);
-    b.addBox(0.50, 0.15, -0.30, 0.55, 0.46, 0.25, 1);
-    b.addBox(-0.55, 0.15, -0.30, -0.50, 0.46, 0.25, 1);
-    b.addBox(-0.56, -0.20, -1.78, 0.56, 0.48, -0.70, 0);
-    b.addBox(-0.58, 0.45, -1.75, 0.58, 0.52, -1.68, 2);
-    b.addBox(-0.62, -0.32, -1.86, 0.62, -0.15, -1.77, 2);
-    b.addBox(-0.55, -0.05, -1.80, -0.45, 0.35, -1.78, 3);
-    b.addBox(0.45, -0.05, -1.80, 0.55, 0.35, -1.78, 3);
+    const b = createSolidBuilder(THREE, B);
+    // Heavy underbody belly plate (Metal)
+    b.addBox(-0.70, -0.32, -1.85, 0.70, -0.20, 1.62, 2);
+    // Heavy steel bullbar & grille
+    b.addBox(-0.66, -0.28, 1.62, 0.66, 0.15, 1.76, 2);
+    b.addBox(-0.52, -0.16, 1.56, 0.52, 0.16, 1.64, 1);
+    b.addBox(-0.64, -0.02, 1.57, -0.48, 0.14, 1.63, 2);
+    b.addBox(0.48, -0.02, 1.57, 0.64, 0.14, 1.63, 2);
+    // Hood & Fenders
+    b.addBox(-0.52, -0.05, 0.48, 0.52, 0.20, 1.58, 0);
+    b.addBox(-0.72, -0.22, 0.48, -0.50, 0.18, 1.58, 0);
+    b.addBox(0.50, -0.22, 0.48, 0.72, 0.18, 1.58, 0);
+    // High Truck Cabin
+    b.addSlopedBox(-0.52, 0.52, 0.16, 0.20, 0.50, 0.20, 0.48, 1);
+    b.addBox(-0.54, 0.48, -0.68, 0.54, 0.55, 0.22, 0);
+    b.addBox(-0.72, -0.22, -0.68, -0.50, 0.24, 0.48, 0);
+    b.addBox(0.50, -0.22, -0.68, 0.72, 0.24, 0.48, 0);
+    b.addBox(-0.55, 0.22, -0.62, -0.50, 0.48, 0.20, 1);
+    b.addBox(0.50, 0.22, -0.62, 0.55, 0.48, 0.20, 1);
+    b.addBox(-0.50, 0.22, -0.70, 0.50, 0.48, -0.66, 1);
+    // Enclosed Van Cargo
+    b.addBox(-0.72, -0.22, -1.82, -0.50, 0.32, -0.68, 0);
+    b.addBox(0.50, -0.22, -1.82, 0.72, 0.32, -0.68, 0);
+    b.addBox(-0.54, 0.48, -1.80, 0.54, 0.54, -0.68, 0);
+    b.addBox(-0.52, -0.20, -1.80, 0.52, 0.48, -0.68, 0);
+    b.addBox(-0.68, -0.22, -1.86, 0.68, 0.32, -1.78, 0);
+    b.addBox(-0.70, -0.32, -1.92, 0.70, -0.18, -1.80, 2);
+    b.addBox(-0.68, -0.05, -1.87, -0.56, 0.25, -1.81, 3);
+    b.addBox(0.56, -0.05, -1.87, 0.68, 0.25, -1.81, 3);
+    // Roof Rack
+    b.addBox(-0.56, 0.54, -1.65, 0.56, 0.60, 0.15, 2);
     return b.build();
   }
 
+  // 3. Aéroplane / Planeur (Avion: 3 Roues - 1 avant centre, 2 arrière)
   function buildPlaneGeometry(THREE, B) {
-    const b = createGeometryBuilder(THREE, B);
-    b.addWedgeZ(-0.32, 0.32, -0.22, 0.05, 1.85, 0.80, 0);
-    b.addBox(-0.38, -0.24, -1.20, 0.38, 0.15, 0.80, 0);
-    b.addWedgeZ(-0.32, 0.32, -0.22, 0.10, -1.20, -1.85, 0);
-    b.addWedgeZ(-0.25, 0.25, 0.10, 0.36, 0.65, -0.20, 1);
-    b.addWedgeZ(-0.25, 0.25, 0.10, 0.36, -0.20, -0.70, 1);
-    // Sweeping Glider Wings
-    b.addBox(-1.40, -0.14, -0.40, -0.38, -0.06, 0.25, 0);
-    b.addBox(-1.42, -0.14, -0.40, -1.38, 0.26, 0.10, 2);
-    b.addBox(0.38, -0.14, -0.40, 1.40, -0.06, 0.25, 0);
-    b.addBox(1.38, -0.14, -0.40, 1.42, 0.26, 0.10, 2);
-    b.addBox(-1.40, -0.15, 0.22, -0.38, -0.05, 0.26, 2);
-    b.addBox(0.38, -0.15, 0.22, 1.40, -0.05, 0.26, 2);
-    // Tailfin
-    b.addBox(-0.06, 0.12, -1.80, 0.06, 0.65, -1.20, 0);
-    b.addBox(-0.07, 0.62, -1.82, 0.07, 0.68, -1.30, 2);
-    b.addBox(-0.75, 0.15, -1.85, 0.75, 0.20, -1.45, 0);
+    const b = createSolidBuilder(THREE, B);
+    // Fuselage belly pan
+    b.addBox(-0.40, -0.26, -1.75, 0.40, -0.15, 1.60, 2);
+    // Pointed Nose cone
+    b.addBox(-0.25, -0.22, 1.58, 0.25, 0.05, 1.95, 1);
+    b.addBox(-0.38, -0.24, 0.85, 0.38, 0.14, 1.60, 0);
+    // Cockpit Canopy
+    b.addSlopedBox(-0.28, 0.28, 0.08, 0.12, 0.40, 0.35, 0.90, 1);
+    b.addBox(-0.28, 0.36, -0.25, 0.28, 0.42, 0.38, 1);
+    b.addSlopedBox(-0.28, 0.28, 0.08, 0.40, 0.14, -0.72, -0.22, 1);
+    // Mid & Aft Fuselage
+    b.addBox(-0.42, -0.24, -0.75, 0.42, 0.18, 0.88, 0);
+    b.addBox(-0.34, -0.20, -1.75, 0.34, 0.14, -0.75, 0);
+    // Swept Glider Wings
+    b.addBox(-1.90, -0.15, -0.55, -0.38, -0.03, 0.35, 0);
+    b.addBox(0.38, -0.15, -0.55, 1.90, -0.03, 0.35, 0);
+    b.addBox(-1.90, -0.16, 0.32, -0.38, -0.02, 0.42, 2);
+    b.addBox(0.38, -0.16, 0.32, 1.90, -0.02, 0.42, 2);
+    b.addBox(-1.92, -0.15, -0.58, -1.86, 0.40, 0.15, 2);
+    b.addBox(1.86, -0.15, -0.58, 1.92, 0.40, 0.15, 2);
+    // Vertical Tailfin & Stabilizers
+    b.addBox(-0.06, 0.12, -1.78, 0.06, 0.75, -1.05, 0);
+    b.addBox(-0.07, 0.70, -1.78, 0.07, 0.78, -1.15, 2);
+    b.addBox(-0.85, 0.02, -1.80, -0.15, 0.10, -1.30, 0);
+    b.addBox(0.15, 0.02, -1.80, 0.85, 0.10, -1.30, 0);
     // Jet Thrusters
-    b.addBox(-0.32, -0.18, -1.95, -0.12, 0.05, -1.75, 2);
-    b.addBox(-0.29, -0.15, -1.97, -0.15, 0.02, -1.93, 3);
-    b.addBox(0.12, -0.18, -1.95, 0.32, 0.05, -1.75, 2);
-    b.addBox(0.15, -0.15, -1.97, 0.29, 0.02, -1.93, 3);
+    b.addBox(-0.32, -0.22, -1.98, -0.10, 0.02, -1.60, 2);
+    b.addBox(0.10, -0.22, -1.98, 0.32, 0.02, -1.60, 2);
+    b.addBox(-0.30, -0.20, -2.00, -0.12, 0.00, -1.96, 3);
+    b.addBox(0.12, -0.20, -2.00, 0.30, 0.00, -1.96, 3);
+
+    // Front Nose Landing Gear & Wheel (3 Wheels Setup: 1 front center wheel, 2 rear wheels)
+    b.addBox(-0.04, -0.38, 1.25, 0.04, -0.18, 1.45, 2); // Metal strut
+    b.addBox(-0.08, -0.44, 1.25, 0.08, -0.24, 1.45, 2); // Central wheel rim
+    b.addBox(-0.11, -0.46, 1.22, 0.11, -0.22, 1.48, 1); // Central tire
+
     return b.build();
   }
 
@@ -203,11 +287,11 @@
     avion: {
       id: 'avion',
       name: 'Aéroplane (Planeur)',
-      subtitle: 'Ailes Aérodynamiques & Vol Plané',
+      subtitle: 'Tricycle 3 Roues & Vol Plané',
       icon: '✈️',
       color: '#10b981',
       powerName: '✈️ Vol Plané Aérodynamique',
-      powerDesc: 'Plane dans les airs lors des grands sauts pendant quelques secondes ! Recharge au sol.',
+      powerDesc: 'Plane dans les airs lors des grands sauts ! 3 roues (1 avant centre, 2 arrière).',
       speedStat: '★★★★☆',
       accelStat: '★★★☆☆',
       gripStat:  '★★★☆☆',
@@ -232,7 +316,7 @@
     window.dispatchEvent(new CustomEvent('polytrack_vehicle_changed', { detail: { vehicleType: type } }));
   }
 
-  // --- 4. CHASSIS CREATION & MORPHING ---
+  // --- 4. CHASSIS CREATION, WHEELS VISIBILITY & MORPHING ---
   function createVehicleChassis(B, THREE) {
     const vType = window._selectedVehicleType || getSelectedVehicleType();
     if (vType === 'f1' || !B || !B.models || !B.models.chassis) {
@@ -251,17 +335,76 @@
       return baseChassis.clone();
     }
 
-    const clonedMats = baseMats.map(m => m.clone());
-    for (const m of clonedMats) {
-      m.side = (THREE && (THREE.DoubleSide || THREE.$EB)) || 2;
-    }
+    const clonedMats = baseMats.map(m => {
+      const c = m.clone();
+      c.side = 2; // DoubleSide (THREE.DoubleSide)
+      c.shadowSide = 2;
+      c.transparent = false;
+      c.depthWrite = true;
+      c.depthTest = true;
+      c.needsUpdate = true;
+      return c;
+    });
+
     const MeshClass = (THREE && (THREE.Mesh || THREE.eaF)) || baseChassis.constructor;
     const mesh = new MeshClass(geom, clonedMats);
     mesh.name = "Body_" + vType;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     return mesh;
   }
 
-  function changeVehicleChassis(carInstance, vType, THREE, l, B, be, me, D, Oe, we) {
+  // Toggles 3-wheel tricycle setup for Airplane (1 front center, 2 rear) vs 4-wheel cars
+  function applyWheelVisibility(carInstance, l, xe, ye, vType) {
+    if (!carInstance) return;
+    vType = vType || window._selectedVehicleType || getSelectedVehicleType();
+
+    try {
+      if (l && xe) {
+        const wheels = (0, l.gn)(carInstance, xe, "f");
+        if (wheels && Array.isArray(wheels) && wheels.length >= 4) {
+          if (vType === 'avion') {
+            wheels[0].visible = false; // Front Left wheel hidden
+            wheels[1].visible = false; // Front Right wheel hidden
+            wheels[2].visible = true;  // Rear Left wheel visible
+            wheels[3].visible = true;  // Rear Right wheel visible
+          } else {
+            wheels[0].visible = true;
+            wheels[1].visible = true;
+            wheels[2].visible = true;
+            wheels[3].visible = true;
+          }
+        }
+      }
+
+      if (l && ye) {
+        const susp = (0, l.gn)(carInstance, ye, "f");
+        if (susp) {
+          susp.visible = (vType !== 'avion');
+        }
+      }
+    } catch (e) {}
+
+    // Fallback: iterate over carGroup children if available
+    try {
+      const carGroup = carInstance.carGroup || carInstance._carGroup || (carInstance.children && carInstance);
+      if (carGroup && carGroup.children) {
+        carGroup.children.forEach(child => {
+          if (child && child.name && !child.name.startsWith('Body_')) {
+            if (vType === 'avion') {
+              if (child.position && child.position.z > 0.4) {
+                child.visible = false;
+              }
+            } else {
+              child.visible = true;
+            }
+          }
+        });
+      }
+    } catch (e) {}
+  }
+
+  function changeVehicleChassis(carInstance, vType, THREE, l, B, be, me, D, Oe, we, xe, ye) {
     if (!carInstance || !THREE || !l || !B || !be || !me) return;
     setSelectedVehicleType(vType);
     const oldMesh = (0, l.gn)(carInstance, be, "f");
@@ -283,6 +426,9 @@
     }
 
     carGroup.add(newMesh);
+
+    // Apply wheel and suspension visibility
+    applyWheelVisibility(carInstance, l, xe, ye, vType);
 
     // Refresh colors on new mesh from car style
     try {
@@ -362,10 +508,16 @@
     powerState.hudEl = hud;
   }
 
-  function updatePower(carInstance, dt, THREE, l, be, te, ie) {
+  function updatePower(carInstance, dt, THREE, l, be, te, ie, xe, ye) {
     if (ie && !(0, l.gn)(carInstance, ie, "f")) return;
 
     const vType = window._selectedVehicleType || getSelectedVehicleType();
+    
+    // Maintain wheel visibility in race
+    if (xe) {
+      applyWheelVisibility(carInstance, l, xe, ye, vType);
+    }
+
     const state = (0, l.gn)(carInstance, te, "f");
     if (!state || !state.hasStarted || state.finishFrames != null) {
       if (powerState.hudEl) powerState.hudEl.style.opacity = '0';
@@ -383,18 +535,14 @@
     if (vType === 'avion') {
       if (!isGrounded) {
         powerState.airborneFrames++;
-        // If in air for at least 8 frames and high enough, glide activates
         if (powerState.airborneFrames > 8 && powerState.glideRemaining > 0) {
           powerState.isGliding = true;
           powerState.glideRemaining = Math.max(0, powerState.glideRemaining - dt);
 
-          // Aerodynamic Lift: dampen downward fall by 85%
           if (state.position && state.position.y !== undefined) {
-            // Apply upward lift force: float gently
             const liftRate = 14.5 * (powerState.glideRemaining / powerState.maxGlide);
             state.position.y += liftRate * dt;
 
-            // Preserve forward glide speed
             const forwardX = -Math.sin(state.quaternion.y * 2);
             const forwardZ = -Math.cos(state.quaternion.y * 2);
             state.position.x += forwardX * 3.5 * dt;
@@ -402,13 +550,11 @@
           }
         }
       } else {
-        // Grounded: reset glider
         powerState.airborneFrames = 0;
         powerState.isGliding = false;
         powerState.glideRemaining = powerState.maxGlide;
       }
 
-      // Render HUD
       const pct = Math.round((powerState.glideRemaining / powerState.maxGlide) * 100);
       const isGliding = powerState.isGliding;
       powerState.hudEl.innerHTML = `
@@ -436,7 +582,6 @@
         powerState.isNitroBoosting = true;
         powerState.nitroFuel = Math.max(0, powerState.nitroFuel - 38 * dt);
 
-        // Forward impulse
         const speedBoost = 40; // +40 km/h
         state.speedKmh = Math.min(320, state.speedKmh + speedBoost * dt);
 
@@ -449,11 +594,9 @@
         }
       } else {
         powerState.isNitroBoosting = false;
-        // Recharge nitro slowly
         powerState.nitroFuel = Math.min(powerState.maxNitro, powerState.nitroFuel + 18 * dt);
       }
 
-      // Render HUD
       const pct = Math.round((powerState.nitroFuel / powerState.maxNitro) * 100);
       const isBoosting = powerState.isNitroBoosting;
       powerState.hudEl.innerHTML = `
@@ -479,7 +622,6 @@
         if (powerState.airborneFrames > 12) powerState.slamCharged = true;
       } else {
         if (powerState.slamCharged) {
-          // Ground slam impact: absorb rebound, boost traction
           powerState.slamCharged = false;
           state.speedKmh = Math.min(280, state.speedKmh + 15);
           powerState.slamTriggered = true;
@@ -488,13 +630,11 @@
         powerState.airborneFrames = 0;
       }
 
-      // Stability: dampen roll / spinout
       if (state.angularVelocity) {
         state.angularVelocity.x *= 0.85;
         state.angularVelocity.z *= 0.85;
       }
 
-      // Render HUD
       powerState.hudEl.innerHTML = `
         <div style="background: rgba(15, 23, 42, 0.85); border: 2px solid #f59e0b; border-radius: 8px; padding: 6px 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(245,158,11,0.35);">
           <span style="font-size: 20px;">🛡️</span>
@@ -538,7 +678,7 @@
   }
 
   // --- 6. GARAGE UI TAB & CARDS ---
-  function createGarageVehiclePanel(soundEngine, uiContainer, cameraMoveFn, Vector3Class) {
+  function createGarageVehiclePanel(soundEngine, uiContainer) {
     const panel = document.createElement('div');
     panel.className = 'panel options-panel hidden vehicle-options-panel';
     panel.style.cssText = `
@@ -632,6 +772,9 @@
         if (window._garageCarInstance && window._garageCarInstance.setVehicleType) {
           window._garageCarInstance.setVehicleType(v.id);
         }
+        if (window._currentCarInstance && window._currentCarInstance.setVehicleType) {
+          window._currentCarInstance.setVehicleType(v.id);
+        }
       });
 
       panel.appendChild(card);
@@ -657,8 +800,6 @@
     });
   }
 
-  // --- 7. EXPORT MODULE ---
-  
   // --- 7. AUTO-GARAGE DOM WATCHER & TAB INJECTOR ---
   function setupGarageWatcher() {
     function checkGarageUI() {
@@ -732,12 +873,14 @@
     }
   }
 
+  // --- 8. PUBLIC API ---
   window.PolyTrackVehicles = {
     VEHICLES,
     getSelectedVehicleType,
     setSelectedVehicleType,
     createVehicleChassis,
     changeVehicleChassis,
+    applyWheelVisibility,
     updatePower,
     disposePower,
     buildSportsCarGeometry,
@@ -749,6 +892,10 @@
   };
 
   window._selectedVehicleType = getSelectedVehicleType();
-  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', setupGarageWatcher); } else { setupGarageWatcher(); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupGarageWatcher);
+  } else {
+    setupGarageWatcher();
+  }
   console.log('[PolyTrack] Vehicle Models & Powers Engine Loaded. Active Vehicle:', window._selectedVehicleType);
 })();
