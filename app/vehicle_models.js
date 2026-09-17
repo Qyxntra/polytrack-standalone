@@ -779,14 +779,20 @@
       newMesh.matrix.copy(oldMatrix);
     }
 
-    (0, l.GG)(carInstance, be, newMesh, "f");
-
-    if (D && Oe) {
-      (0, l.GG)(carInstance, D, newMesh.material, "f");
-      (0, l.GG)(carInstance, Oe, newMesh.geometry, "f");
+    try {
+      if (be) {
+        (0, l.GG)(carInstance, be, newMesh, "f");
+      }
+    } catch (e) {
+      console.warn('[PolyTrack] Error setting chassis mesh field be:', e);
     }
-    if (we) {
-      (0, l.GG)(carInstance, we, newMesh.material[0], "f");
+
+    if (D && Oe && typeof Oe === 'function') {
+      try {
+        (0, l.gn)(carInstance, D, "m", Oe).call(carInstance, newMesh);
+      } catch (e) {
+        console.warn('[PolyTrack] Method Oe error:', e);
+      }
     }
 
     carGroup.add(newMesh);
