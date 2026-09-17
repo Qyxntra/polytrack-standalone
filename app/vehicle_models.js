@@ -614,10 +614,13 @@
     f1: {
       id: 'f1',
       name: 'Formule 1 (F1)',
+      shortName: 'F1',
+      badge: 'AÉRO',
       tag: 'MONOPLACE F1',
+      image: 'images/vehicle_f1.svg',
       subtitle: 'Vitesse Pure & Appui Maximal',
       icon: '🏎️',
-      color: '#e11d48',
+      color: '#ef4444',
       powerName: 'Appui Aérodynamique',
       powerKey: 'PASSIF PERMANENT',
       powerDesc: 'Vitesse de pointe chirurgicale (320 km/h) et appui maximal au sol en virage rapide.',
@@ -627,10 +630,13 @@
     voiture: {
       id: 'voiture',
       name: 'Sportive GT',
+      shortName: 'SPORT GT',
+      badge: 'NITRO',
       tag: 'HYPERCAR CYBER',
+      image: 'images/vehicle_gt.svg',
       subtitle: 'Turbo Nitro Boost & Dérapage',
       icon: '🚗',
-      color: '#3b82f6',
+      color: '#06b6d4',
       powerName: '⚡ Turbo Nitro Boost',
       powerKey: '[ESPACE] OU [SHIFT]',
       powerDesc: 'Poussée supersonique (+40 km/h) avec traînées de vitesse. Se recharge en roulant.',
@@ -640,9 +646,12 @@
     camionnette: {
       id: 'camionnette',
       name: 'Le Mastodonte',
+      shortName: 'PICK-UP',
+      badge: 'SLAM',
       tag: 'OFFROAD BAJA',
+      image: 'images/vehicle_van.svg',
       subtitle: 'Pick-up / Blindage Lourd',
-      icon: '🚐',
+      icon: '🚙',
       color: '#f59e0b',
       powerName: '🛡️ Blindage & Ground Slam',
       powerKey: 'AU SOL & SAUTS',
@@ -653,10 +662,13 @@
     avion: {
       id: 'avion',
       name: 'Aéroplane (Jet Glider)',
+      shortName: 'AVION',
+      badge: 'VOL',
       tag: 'CHASSEUR SUPERSONIQUE',
+      image: 'images/vehicle_plane.svg',
       subtitle: 'Tricycle 3 Roues & Vol Plané',
       icon: '✈️',
-      color: '#10b981',
+      color: '#a855f7',
       powerName: '✈️ Vol Plané Aérodynamique',
       powerKey: 'EN L\'AIR (SAUTS)',
       powerDesc: 'Plane et flotte dans les airs pendant 3.5s sur les grands sauts. 3 roues (1 avant centre, 2 arrière).',
@@ -1148,54 +1160,122 @@
     const style = document.createElement('style');
     style.id = 'polytrack-enhanced-ui-styles';
     style.textContent = `
-      /* Enhanced Garage & UI Styles */
-      .vehicle-tab-btn {
+      /* Vehicle Options Panel: exactly like native PolyTrack options panels (Rims, Patterns, Exhausts) */
+      .customization-panel-ui > .vehicle-options-panel {
+        z-index: 10;
+      }
+      .customization-panel-ui > .options-panel > button.vehicle-option-btn {
         position: relative;
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.25) 100%) !important;
-        border: 1px solid rgba(96, 165, 250, 0.4) !important;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        display: block;
+        margin: 0 0 2px 0;
+        padding: 5px;
+        background-color: var(--button-color);
+        border: 2px solid rgb(38, 31, 88);
+        cursor: pointer;
+        box-sizing: border-box;
       }
-      .vehicle-tab-btn:hover {
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.4) 100%) !important;
-        border-color: rgba(147, 197, 253, 0.7) !important;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+      .customization-panel-ui > .options-panel > button.vehicle-option-btn:hover {
+        background-color: var(--button-hover-color);
       }
-      .vehicle-tab-btn.selected {
-        background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%) !important;
-        border-color: #93c5fd !important;
-        color: #fff !important;
-        box-shadow: 0 0 15px rgba(59, 130, 246, 0.5) !important;
+      .customization-panel-ui > .options-panel > button.vehicle-option-btn.selected {
+        background-color: var(--button-hover-color);
+        box-shadow: inset 0 0 5px #fff;
+        border: 2px solid #fff;
       }
-      .vehicle-tab-btn .tab-badge-new {
+      .customization-panel-ui > .options-panel > button.vehicle-option-btn > img {
+        display: block;
+        margin: 0 auto;
+        padding: 0;
+        width: 128px;
+        height: 128px;
+        filter: drop-shadow(0 0 2px #000);
+        pointer-events: none;
+      }
+      .customization-panel-ui > .options-panel > button.vehicle-option-btn .vehicle-pill-badge {
         position: absolute;
-        top: -4px;
-        right: -4px;
-        background: #ef4444;
-        color: #fff;
-        font-size: 8px;
+        bottom: 6px;
+        left: 6px;
+        right: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(10, 15, 29, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 3px;
+        padding: 3px 6px;
+        pointer-events: none;
+        font-family: inherit;
+      }
+      .customization-panel-ui > .options-panel > button.vehicle-option-btn .vehicle-pill-badge .v-name {
+        font-size: 11px;
         font-weight: 900;
-        padding: 1px 4px;
-        border-radius: 4px;
+        color: #fff;
         letter-spacing: 0.5px;
-        box-shadow: 0 2px 5px rgba(239, 68, 68, 0.5);
+        text-transform: uppercase;
       }
-      .vehicle-options-panel::-webkit-scrollbar {
-        width: 5px;
+      .customization-panel-ui > .options-panel > button.vehicle-option-btn .vehicle-pill-badge .v-badge {
+        font-size: 9px;
+        font-weight: 800;
+        color: #fff;
+        padding: 1px 5px;
+        border-radius: 2px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
       }
-      .vehicle-options-panel::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.2);
+      .customization-panel-ui > .options-panel > button.vehicle-option-btn .vehicle-preview-tooltip {
+        position: absolute;
+        right: calc(100% + 8px);
+        top: 50%;
+        transform: translateY(-50%);
+        width: 230px;
+        background: var(--surface-color);
+        border: 2px solid var(--surface-tertiary-color);
+        padding: 10px 12px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.15s ease-out, visibility 0.15s ease-out;
+        z-index: 100;
+        font-family: inherit;
+        text-align: left;
+        box-sizing: border-box;
       }
-      .vehicle-options-panel::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
+      .customization-panel-ui > .options-panel > button.vehicle-option-btn:hover .vehicle-preview-tooltip {
+        opacity: 1;
+        visibility: visible;
       }
-      .vehicle-options-panel::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.4);
+      .vehicle-preview-tooltip .vtt-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
       }
-      @keyframes pulseGlow {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.04); opacity: 0.85; }
+      .vehicle-preview-tooltip .vtt-title {
+        font-size: 13px;
+        font-weight: 900;
+        color: var(--text-color);
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+      .vehicle-preview-tooltip .vtt-badge {
+        font-size: 9px;
+        font-weight: 800;
+        padding: 2px 5px;
+        border-radius: 3px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+      }
+      .vehicle-preview-tooltip .vtt-power {
+        font-size: 11px;
+        font-weight: 800;
+        margin-bottom: 4px;
+      }
+      .vehicle-preview-tooltip .vtt-desc {
+        font-size: 10px;
+        color: var(--text-color);
+        opacity: 0.8;
+        line-height: 1.35;
       }
     `;
     document.head.appendChild(style);
@@ -1204,147 +1284,56 @@
   function createGarageVehiclePanel(soundEngine, uiContainer) {
     injectGlobalStyles();
 
-    const panel = document.createElement('div');
-    panel.className = 'panel options-panel hidden vehicle-options-panel';
-    panel.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      padding: 14px;
-      gap: 12px;
-      width: 330px;
-      box-sizing: border-box;
-      position: absolute;
-      right: var(--safe-area-right);
-      bottom: 64px;
-      height: calc(100% - 128px);
-      background: linear-gradient(180deg, rgba(13, 19, 33, 0.94) 0%, rgba(9, 14, 26, 0.96) 100%);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-left: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: -10px 0 35px rgba(0, 0, 0, 0.6), inset 1px 0 0 rgba(255, 255, 255, 0.08);
-      overflow-y: auto;
-      pointer-events: auto;
-      font-family: inherit;
-    `;
+    let panel = document.querySelector('.vehicle-options-panel');
+    if (panel) return panel;
 
-    const header = document.createElement('div');
-    header.style.cssText = 'padding: 4px 0 12px 0; border-bottom: 1px solid rgba(255,255,255,0.12); margin-bottom: 2px;';
-    header.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between;">
-        <div style="font-size: 18px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 0.8px;">
-          SÉLECTION DU BOLIDE
-        </div>
-        <span style="font-size: 10px; background: rgba(59,130,246,0.2); color: #60a5fa; font-weight: bold; padding: 2px 7px; border-radius: 999px; border: 1px solid rgba(59,130,246,0.4);">
-          4 MODÈLES
-        </span>
-      </div>
-      <div style="font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 4px; line-height: 1.35;">
-        Chaque véhicule dispose d'un style 3D unique et d'un super-pouvoir exclusif en piste !
-      </div>
-    `;
-    panel.appendChild(header);
+    panel = document.createElement('div');
+    panel.className = 'panel options-panel hidden vehicle-options-panel';
 
     const currentSelected = getSelectedVehicleType();
 
     Object.values(VEHICLES).forEach(v => {
       const isSelected = v.id === currentSelected;
-      const card = document.createElement('button');
-      card.className = 'vehicle-card-btn' + (isSelected ? ' selected' : '');
-      card.dataset.vehicleId = v.id;
-      card.style.cssText = `
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        padding: 12px 14px;
-        background: ${isSelected ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.03)'};
-        border: 2px solid ${isSelected ? v.color : 'rgba(255, 255, 255, 0.08)'};
-        border-radius: 10px;
-        cursor: pointer;
-        text-align: left;
-        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-        position: relative;
-        font-family: inherit;
-        box-shadow: ${isSelected ? `0 4px 20px ${v.color}40` : 'none'};
+      const btn = document.createElement('button');
+      btn.className = 'vehicle-option-btn' + (isSelected ? ' selected' : '');
+      btn.dataset.vehicleId = v.id;
+      btn.type = 'button';
+
+      // 128x128 Preview image matching native PolyTrack Rims/Patterns
+      const img = document.createElement('img');
+      img.src = v.image || `images/vehicle_${v.id}.svg`;
+      img.alt = v.name;
+      img.width = 128;
+      img.height = 128;
+      btn.appendChild(img);
+
+      // Compact label badge at bottom of button
+      const tagBar = document.createElement('div');
+      tagBar.className = 'vehicle-pill-badge';
+      tagBar.innerHTML = `
+        <span class="v-name">${v.shortName || v.tag || v.name}</span>
+        <span class="v-badge" style="background: ${v.color || '#3b82f6'};">${v.badge || 'PRO'}</span>
       `;
+      btn.appendChild(tagBar);
 
-      card.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="font-size: 26px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-              ${v.icon}
-            </div>
-            <div>
-              <div style="font-size: 15px; font-weight: 800; color: #fff; letter-spacing: 0.3px;">${v.name}</div>
-              <div style="font-size: 10px; color: ${v.color}; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px;">${v.tag}</div>
-            </div>
-          </div>
-          <span class="active-badge" style="display: ${isSelected ? 'inline-block' : 'none'}; font-size: 10px; background: ${v.color}; color: #000; font-weight: 900; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 0 10px ${v.color}80;">
-            ACTIF
-          </span>
+      // Tooltip on hover (slides out cleanly to the left without obstructing the car)
+      const tooltip = document.createElement('div');
+      tooltip.className = 'vehicle-preview-tooltip';
+      tooltip.innerHTML = `
+        <div class="vtt-header">
+          <span class="vtt-title">${v.name}</span>
+          <span class="vtt-badge" style="background: ${v.color}25; color: ${v.color}; border: 1px solid ${v.color}50;">${v.powerKey || 'POUVOIR'}</span>
         </div>
-
-        <div style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 8px 10px; margin-top: 2px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px;">
-            <span style="font-size: 12px; font-weight: 800; color: ${v.color};">${v.powerName}</span>
-            <span style="font-size: 9px; background: rgba(255,255,255,0.1); color: #e2e8f0; padding: 1px 5px; border-radius: 3px; font-weight: bold;">${v.powerKey}</span>
-          </div>
-          <div style="font-size: 11px; color: rgba(255,255,255,0.72); line-height: 1.35;">
-            ${v.powerDesc}
-          </div>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 2px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 10px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <span style="color: rgba(255,255,255,0.55); width: 68px;">Vitesse Max</span>
-            <div style="flex-grow: 1; height: 5px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden;">
-              <div style="width: ${v.stats.speed}%; height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa);"></div>
-            </div>
-            <span style="color: #f1f5f9; font-weight: bold; width: 72px; text-align: right;">${v.statLabels.speed}</span>
-          </div>
-
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <span style="color: rgba(255,255,255,0.55); width: 68px;">Accélération</span>
-            <div style="flex-grow: 1; height: 5px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden;">
-              <div style="width: ${v.stats.accel}%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399);"></div>
-            </div>
-            <span style="color: #f1f5f9; font-weight: bold; width: 72px; text-align: right;">${v.statLabels.accel}</span>
-          </div>
-
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <span style="color: rgba(255,255,255,0.55); width: 68px;">Adhérence</span>
-            <div style="flex-grow: 1; height: 5px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden;">
-              <div style="width: ${v.stats.grip}%; height: 100%; background: linear-gradient(90deg, #f59e0b, #fbbf24);"></div>
-            </div>
-            <span style="color: #f1f5f9; font-weight: bold; width: 72px; text-align: right;">${v.statLabels.grip}</span>
-          </div>
-
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <span style="color: rgba(255,255,255,0.55); width: 68px;">Portance Aéro</span>
-            <div style="flex-grow: 1; height: 5px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden;">
-              <div style="width: ${v.stats.aero}%; height: 100%; background: linear-gradient(90deg, #8b5cf6, #a78bfa);"></div>
-            </div>
-            <span style="color: #f1f5f9; font-weight: bold; width: 72px; text-align: right;">${v.statLabels.aero}</span>
-          </div>
-        </div>
+        <div class="vtt-power" style="color: ${v.color};">${v.powerName}</div>
+        <div class="vtt-desc">${v.powerDesc}</div>
       `;
+      btn.appendChild(tooltip);
 
-      card.addEventListener('mouseenter', () => {
+      btn.addEventListener('mouseenter', () => {
         AudioFX.playHover();
-        if (!card.classList.contains('selected')) {
-          card.style.background = 'rgba(255, 255, 255, 0.08)';
-          card.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-          card.style.transform = 'translateY(-2px)';
-        }
-      });
-      card.addEventListener('mouseleave', () => {
-        if (!card.classList.contains('selected')) {
-          card.style.background = 'rgba(255, 255, 255, 0.03)';
-          card.style.borderColor = 'rgba(255, 255, 255, 0.08)';
-          card.style.transform = 'translateY(0)';
-        }
       });
 
-      card.addEventListener('click', () => {
+      btn.addEventListener('click', () => {
         try {
           AudioFX.playSelect();
           if (soundEngine && soundEngine.playUIClick) soundEngine.playUIClick();
@@ -1361,7 +1350,7 @@
         }
       });
 
-      panel.appendChild(card);
+      panel.appendChild(btn);
     });
 
     if (uiContainer) uiContainer.appendChild(panel);
@@ -1372,17 +1361,10 @@
     const current = getSelectedVehicleType();
     const panel = document.querySelector('.vehicle-options-panel');
     if (!panel) return;
-    panel.querySelectorAll('.vehicle-card-btn').forEach(b => {
+    panel.querySelectorAll('.vehicle-option-btn').forEach(b => {
       const vId = b.dataset.vehicleId;
       const isThis = vId === current;
-      const v = VEHICLES[vId] || {};
       b.classList.toggle('selected', isThis);
-      b.style.borderColor = isThis ? (v.color || '#3b82f6') : 'rgba(255, 255, 255, 0.08)';
-      b.style.background = isThis ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.03)';
-      b.style.transform = isThis ? 'scale(1.01)' : 'scale(1)';
-      b.style.boxShadow = isThis ? `0 4px 20px ${v.color}40` : 'none';
-      const badge = b.querySelector('.active-badge');
-      if (badge) badge.style.display = isThis ? 'inline-block' : 'none';
     });
 
     // Make sure garage car matrix & wheels are updated
@@ -1416,7 +1398,7 @@
           vehicleBtn = document.createElement('button');
           vehicleBtn.className = 'button vehicle-tab-btn';
           vehicleBtn.type = 'button';
-          vehicleBtn.innerHTML = 'Skins / Véhicules <span class="tab-badge-new">NEW</span>';
+          vehicleBtn.innerHTML = 'Véhicules <img class="button-icon" src="images/vehicles_tab.svg">';
           tabBar.appendChild(vehicleBtn);
         }
       }
@@ -1431,13 +1413,12 @@
           vehicleBtn.classList.add('selected');
 
           Array.from(panelUI.children).forEach(child => {
-            if (child !== tabBar && child.classList) {
+            if (child !== tabBar && child.classList && child.classList.contains('panel')) {
               child.classList.add('hidden');
             }
           });
 
           vPanel.classList.remove('hidden');
-          vPanel.style.display = 'flex';
           refreshGaragePanelSelection();
 
           if (window._garageCarInstance && typeof window._garageCarInstance.update === 'function') {
@@ -1452,7 +1433,6 @@
               if (vehicleBtn) vehicleBtn.classList.remove('selected');
               if (vPanel) {
                 vPanel.classList.add('hidden');
-                vPanel.style.display = 'none';
               }
             });
           }

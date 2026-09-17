@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="plane_body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc" />
+      <stop offset="50%" stop-color="#9333ea" />
+      <stop offset="100%" stop-color="#6b21a8" />
+    </linearGradient>
+    <linearGradient id="plane_metal" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e2e8f0" />
+      <stop offset="100%" stop-color="#94a3b8" />
+    </linearGradient>
+    <linearGradient id="plane_glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+    <filter id="shadow_plane" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow_plane)">
+    <!-- Ground Shadow -->
+    <ellipse cx="64" cy="98" rx="46" ry="12" fill="#000000" opacity="0.35" />
+
+    <!-- Rear Left Wheel (back) [Wheel 2 of 3] -->
+    <ellipse cx="88" cy="66" rx="7" ry="13" fill="#0f172a" />
+
+    <!-- Left Delta Wing (Back) -->
+    <polygon points="56,66 94,44 98,47 68,70" fill="#6b21a8" />
+    <polygon points="94,44 98,42 98,47" fill="#38bdf8" /> <!-- Winglet left -->
+
+    <!-- Twin Canted V-Tails (Fighter Fins) -->
+    <polygon points="86,52 98,34 102,36 94,56" fill="#9333ea" /> <!-- Left Fin -->
+    <polygon points="98,34 104,33 104,36 102,36" fill="#c084fc" />
+    <polygon points="94,57 106,38 110,40 102,61" fill="#7e22ce" /> <!-- Right Fin -->
+
+    <!-- Dual Jet Thrusters (Glowing Plasma Core) -->
+    <ellipse cx="106" cy="62" rx="4" ry="6" fill="#020617" />
+    <ellipse cx="106" cy="62" rx="2.5" ry="4" fill="url(#plane_glow)" />
+
+    <!-- Needle Nosecone & Pitot Probe -->
+    <line x1="8" y1="94" x2="18" y2="88" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round" />
+    <polygon points="18,88 38,78 44,84 22,93" fill="url(#plane_metal)" />
+
+    <!-- Fuselage & Canopy -->
+    <polygon points="34,79 66,66 98,62 104,68 76,78 40,86" fill="url(#plane_body)" />
+    <!-- Fighter Cockpit Canopy -->
+    <polygon points="38,78 56,64 72,66 54,77" fill="#0f172a" stroke="#a855f7" stroke-width="0.8" />
+    <polygon points="42,75 54,66 66,67 52,74" fill="#38bdf8" opacity="0.6" /> <!-- Glare -->
+
+    <!-- Right Delta Wing (Foreground) -->
+    <polygon points="48,84 82,102 88,100 68,78" fill="url(#plane_body)" />
+    <polygon points="48,84 82,102 84,103 48,85" fill="url(#plane_metal)" /> <!-- Chrome leading edge -->
+    <polygon points="82,102 86,96 88,98 88,100" fill="#ef4444" /> <!-- Red Nav Light Winglet -->
+
+    <!-- Supersonic Air Intake -->
+    <polygon points="56,76 68,72 66,78 54,80" fill="#020617" />
+    <polygon points="68,72 70,72 68,78 66,78" fill="#c084fc" />
+
+    <!-- TRICYCLE WHEEL 1: FRONT NOSE WHEEL (CENTER STRUT) -->
+    <!-- Vertical Landing Gear Strut -->
+    <line x1="30" y1="88" x2="30" y2="96" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" />
+    <!-- Front Wheel -->
+    <ellipse cx="30" cy="98" rx="5" ry="9" fill="#0f172a" />
+    <ellipse cx="30" cy="98" rx="3" ry="5.5" fill="#94a3b8" />
+
+    <!-- TRICYCLE WHEEL 3: REAR RIGHT WHEEL (FOREGROUND) -->
+    <ellipse cx="100" cy="75" rx="9" ry="15" fill="#0f172a" />
+    <ellipse cx="100" cy="75" rx="5" ry="9" fill="#94a3b8" />
+    <circle cx="100" cy="75" r="2" fill="#7e22ce" />
+  </g>
+</svg>
