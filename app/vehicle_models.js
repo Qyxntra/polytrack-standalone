@@ -57,6 +57,64 @@
         osc.start();
         osc.stop(this.ctx.currentTime + 0.14);
       } catch (e) {}
+    },
+    playDrsOpen: function() {
+      try {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+        const t = this.ctx.currentTime;
+        // 1. High-tech actuator chirp
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(1400, t);
+        osc.frequency.exponentialRampToValueAtTime(2600, t + 0.04);
+        osc.frequency.exponentialRampToValueAtTime(900, t + 0.08);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.08);
+
+        // 2. Aerodynamic air rush puff
+        const osc2 = this.ctx.createOscillator();
+        const gain2 = this.ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(360, t);
+        osc2.frequency.exponentialRampToValueAtTime(120, t + 0.16);
+        gain2.gain.setValueAtTime(0.05, t);
+        gain2.gain.linearRampToValueAtTime(0.001, t + 0.16);
+        osc2.connect(gain2);
+        gain2.connect(this.ctx.destination);
+        osc2.start(t);
+        osc2.stop(t + 0.16);
+      } catch (e) {}
+    },
+    playDrsClose: function() {
+      try {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+        const t = this.ctx.currentTime;
+        // Mechanical wing flap clamp / latch snap
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(820, t);
+        osc.frequency.exponentialRampToValueAtTime(160, t + 0.06);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.06);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      } catch (e) {}
     }
   };
 
@@ -777,6 +835,74 @@
     return newMesh;
   }
 
+  // --- 4.5 FORMULE 1 DRS WING FLAP BUILDER & ATTACHMENT ---
+  function buildDrsFlapGeometry(THREE, B) {
+    const b = createSolidBuilder(THREE, B);
+    // Flap aerofoil blade:
+    // Span X: -0.58 to +0.58 (1.16m wide, nestled between rear wing endplates)
+    // Thickness Y: -0.012 to +0.012 (2.4 cm)
+    // Chord Z: 0.00 to +0.16 (pivots along rear edge at 0, extends forward to 0.16)
+    // Material 0: Main (car primary paint & dynamic pattern)
+    b.addBox(-0.58, -0.012, 0.00, 0.58, 0.012, 0.16, 0);
+
+    // Center hydraulic actuator pod (Metal chrome/titanium)
+    b.addBox(-0.04, -0.018, 0.02, 0.04, 0.022, 0.14, 2);
+
+    // Left & right hinge pivot lugs (Metal)
+    b.addBox(-0.585, -0.015, -0.012, -0.575, 0.015, 0.012, 2);
+    b.addBox(0.575, -0.015, -0.012, 0.585, 0.015, 0.012, 2);
+
+    // Hydraulic piston rod & brackets (Metal)
+    b.addBox(-0.015, -0.035, 0.06, 0.015, -0.015, 0.10, 2);
+
+    return b.build();
+  }
+
+  function ensureF1DrsFlap(carInstance, l, be, THREE, B) {
+    if (!carInstance || !be) return null;
+    try {
+      const chassisMesh = (0, l.gn)(carInstance, be, "f");
+      if (!chassisMesh) return null;
+
+      if (carInstance._drsFlapGroup && carInstance._drsFlapGroup.parent === chassisMesh) {
+        return carInstance._drsFlapGroup;
+      }
+
+      if (carInstance._drsFlapGroup && carInstance._drsFlapGroup.parent) {
+        try { carInstance._drsFlapGroup.parent.remove(carInstance._drsFlapGroup); } catch (e) {}
+      }
+
+      const geom = buildDrsFlapGeometry(THREE, B);
+      if (!geom) return null;
+
+      let clonedMats;
+      if (Array.isArray(chassisMesh.material)) {
+        clonedMats = chassisMesh.material.map(m => m ? m.clone() : m);
+      } else if (chassisMesh.material) {
+        clonedMats = [chassisMesh.material.clone(), chassisMesh.material.clone(), chassisMesh.material.clone(), chassisMesh.material.clone()];
+      }
+
+      const MeshClass = (THREE && (THREE.Mesh || THREE.vY)) || (chassisMesh && chassisMesh.constructor);
+      const flapMesh = new MeshClass(geom, clonedMats);
+      flapMesh.castShadow = true;
+      flapMesh.receiveShadow = true;
+
+      const GroupClass = (THREE && (THREE.Group || THREE.YJl)) || (chassisMesh && chassisMesh.parent && chassisMesh.parent.constructor);
+      const drsGroup = new GroupClass();
+      drsGroup.name = 'F1_DRS_Flap';
+      drsGroup.add(flapMesh);
+      // Position pivot on the upper rear wing element
+      drsGroup.position.set(0, 0.355, -1.82);
+
+      chassisMesh.add(drsGroup);
+      carInstance._drsFlapGroup = drsGroup;
+      return drsGroup;
+    } catch (e) {
+      console.warn('[PolyTrack] Error in ensureF1DrsFlap:', e);
+      return null;
+    }
+  }
+
   function applyExhaustTransform(exhaustMesh, vType) {
     if (!exhaustMesh) return;
     vType = vType || window._selectedVehicleType || getSelectedVehicleType();
@@ -888,6 +1014,19 @@
                 }
               }
             });
+          }
+        }
+      } catch (e) {}
+
+      // 4. Update DRS flap materials if present
+      try {
+        if (this._drsFlapGroup) {
+          const chassis = (0, l.gn)(this, be, "f");
+          if (chassis && chassis.material) {
+            const childMesh = this._drsFlapGroup.children[0];
+            if (childMesh && Array.isArray(chassis.material)) {
+              childMesh.material = chassis.material.map(m => m ? m.clone() : m);
+            }
           }
         }
       } catch (e) {}
@@ -1020,6 +1159,16 @@
         }
       } catch (e) {}
 
+      // 8. F1 DRS Flap visibility & initialization
+      try {
+        if (vType === 'f1') {
+          ensureF1DrsFlap(carInstance, l, be, THREE, B);
+          if (carInstance._drsFlapGroup) carInstance._drsFlapGroup.visible = true;
+        } else {
+          if (carInstance._drsFlapGroup) carInstance._drsFlapGroup.visible = false;
+        }
+      } catch (e) {}
+
       console.log('[PolyTrack] Vehicle morphed to:', vType);
     } catch (outerErr) {
       console.error('[PolyTrack] changeVehicleChassis recovered safely:', outerErr);
@@ -1033,6 +1182,12 @@
     maxNitro: 100,
     isNitroBoosting: false,
     nitroKeyHeld: false,
+
+    // DRS (Formule 1)
+    drsKeyHeld: false,
+    drsFlapAngle: 0,
+    isDrsActive: false,
+    wasDrsActive: false,
 
     // Glider (Avion)
     isGliding: false,
@@ -1053,11 +1208,21 @@
     if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
       powerState.nitroKeyHeld = true;
     }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      powerState.drsKeyHeld = true;
+    }
   });
   window.addEventListener('keyup', e => {
     if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
       powerState.nitroKeyHeld = false;
     }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      powerState.drsKeyHeld = false;
+    }
+  });
+  window.addEventListener('blur', () => {
+    powerState.nitroKeyHeld = false;
+    powerState.drsKeyHeld = false;
   });
 
   function setupHUD() {
@@ -1123,6 +1288,11 @@
     // Check if wheels touch ground
     const contacts = state.wheelContact || [];
     const isGrounded = contacts.some(c => c != null && c !== false);
+
+    // Hide F1 DRS flap if driving another vehicle
+    if (vType !== 'f1' && carInstance._drsFlapGroup) {
+      carInstance._drsFlapGroup.visible = false;
+    }
 
     // --- 1. AVION: GLIDER ABILITY ---
     if (vType === 'avion') {
@@ -1271,17 +1441,78 @@
       `;
     }
 
-    // --- 4. FORMULE 1 ---
+    // --- 4. FORMULE 1: DRS (Drag Reduction System) ---
     else {
+      const flap = ensureF1DrsFlap(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
+      if (flap) flap.visible = true;
+
+      const controls = carInstance.getControls ? carInstance.getControls() : {};
+      const wantsDrs = powerState.drsKeyHeld;
+      const isMovingForward = state.speedKmh > 15;
+      const isDrsActive = wantsDrs && isMovingForward;
+
+      // Sound feedback on state transition
+      if (isDrsActive && !powerState.wasDrsActive) {
+        AudioFX.playDrsOpen();
+      } else if (!isDrsActive && powerState.wasDrsActive) {
+        AudioFX.playDrsClose();
+      }
+      powerState.wasDrsActive = isDrsActive;
+
+      // Animate 3D DRS Flap on rear wing (rotates up ~28 degrees when open)
+      const targetAngle = isDrsActive ? -0.48 : 0.0;
+      powerState.drsFlapAngle += (targetAngle - powerState.drsFlapAngle) * Math.min(1, dt * 24);
+      if (carInstance._drsFlapGroup) {
+        carInstance._drsFlapGroup.rotation.x = powerState.drsFlapAngle;
+        carInstance._drsFlapGroup.visible = true;
+      }
+
+      if (isDrsActive) {
+        // Drastic aerodynamic drag reduction & acceleration surge up to 335 km/h
+        const accelBoost = controls.up ? 34 : 14;
+        state.speedKmh = Math.min(335, state.speedKmh + accelBoost * dt);
+
+        // Forward aerodynamic thrust vector
+        if (state.position) {
+          const q = state.quaternion || { y: 0, w: 1 };
+          const forwardX = -2 * (q.x * q.z + q.w * q.y);
+          const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
+          const aeroFactor = Math.min(1.25, Math.max(0.3, state.speedKmh / 140));
+          state.position.x += forwardX * (8.5 * aeroFactor) * dt;
+          state.position.z += forwardZ * (8.5 * aeroFactor) * dt;
+        }
+
+        // Screen aerodynamic speed lines FX
+        if (powerState.fxOverlayEl) {
+          if (state.speedKmh > 180) {
+            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(34, 197, 94, 0.18) 90%, rgba(16, 185, 129, 0.32) 100%)';
+            powerState.fxOverlayEl.style.opacity = '1';
+          } else {
+            powerState.fxOverlayEl.style.opacity = '0';
+          }
+        }
+      } else {
+        if (powerState.fxOverlayEl) {
+          powerState.fxOverlayEl.style.opacity = '0';
+        }
+      }
+
+      // Real-time F1 Telemetry HUD
+      const speed = Math.round(state.speedKmh || 0);
       powerState.hudEl.innerHTML = `
-        <div style="background: rgba(24, 8, 12, 0.90); backdrop-filter: blur(12px); border: 1.5px solid #e11d48; border-radius: 10px; padding: 7px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 24px rgba(225,29,72,0.35); min-width: 280px;">
-          <div style="font-size: 24px; filter: drop-shadow(0 0 8px #fb7185);">🏎️</div>
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <div style="font-size: 13px; font-weight: 800; letter-spacing: 0.5px; color: #fecdd3;">
-              FORMULE 1 • APPUI AÉRODYNAMIQUE DRS
+        <div style="background: rgba(14, 14, 20, 0.92); backdrop-filter: blur(12px); border: 1.5px solid ${isDrsActive ? '#22c55e' : '#e11d48'}; border-radius: 10px; padding: 7px 18px; display: flex; align-items: center; gap: 14px; box-shadow: 0 8px 24px ${isDrsActive ? 'rgba(34,197,94,0.55)' : 'rgba(225,29,72,0.3)'}; min-width: 320px; transition: border-color 0.15s ease, box-shadow 0.15s ease;">
+          <div style="font-size: 26px; filter: drop-shadow(0 0 8px ${isDrsActive ? '#22c55e' : '#fb7185'});">🏎️</div>
+          <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+              <span style="font-size: 13px; font-weight: 800; letter-spacing: 0.6px; color: ${isDrsActive ? '#86efac' : '#fecdd3'};">
+                ${isDrsActive ? '🟢 DRS ACTIF • TRAÎNÉE MIN (+335 KM/H)' : '🏎️ DRS PRÊT • MAINTENIR [SHIFT]'}
+              </span>
+              <span style="font-size: 13px; font-weight: 900; color: ${isDrsActive ? '#22c55e' : '#f43f5e'};">
+                ${speed} <span style="font-size: 10px; font-weight: 700; opacity: 0.85;">KM/H</span>
+              </span>
             </div>
-            <div style="font-size: 11px; color: #f43f5e; opacity: 0.95;">
-              Vitesse de pointe chirurgicale & tenue en virage
+            <div style="width: 100%; height: 7px; background: rgba(255,255,255,0.12); border-radius: 999px; overflow: hidden; position: relative;">
+              <div style="width: ${Math.min(100, Math.round((speed / 335) * 100))}%; height: 100%; background: ${isDrsActive ? 'linear-gradient(90deg, #15803d, #22c55e, #4ade80)' : 'linear-gradient(90deg, #be123c, #e11d48, #fb7185)'}; transition: width 0.08s linear;"></div>
             </div>
           </div>
         </div>
@@ -1300,6 +1531,8 @@
     }
     powerState.isGliding = false;
     powerState.isNitroBoosting = false;
+    powerState.isDrsActive = false;
+    powerState.wasDrsActive = false;
   }
 
   // --- 6. GARAGE UI ENHANCEMENTS & SHOWROOM STYLING ---
