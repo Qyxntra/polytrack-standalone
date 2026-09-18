@@ -1441,6 +1441,8 @@
     drsFlapAngle: 0,
     isDrsActive: false,
     wasDrsActive: false,
+    drsEnergy: 100,
+    maxDrsEnergy: 100,
 
     // Nitro (Voiture GT)
     nitroFuel: 100,
@@ -1456,15 +1458,14 @@
     slamCharged: false,
     slamTriggered: false,
 
-    // Glider & Postcombustion (Avion)
-    isGliding: false,
-    glideRemaining: 3.5,
-    maxGlide: 3.5,
-    airborneFrames: 0,
-    isAfterburning: false,
-    wasAfterburning: false,
-    afterburnerFuel: 100,
-    maxAfterburner: 100,
+    // Flight & Aerodynamic Jet Glider (Avion)
+    isFlying: false,
+    wasFlying: false,
+    flightFuel: 100,
+    maxFlightFuel: 100,
+    planeAltitude: 0,
+    planeRoll: 0,
+    planePitch: 0,
 
     // UI Elements
     hudEl: null,
@@ -1528,7 +1529,13 @@
       drsBox.title = 'Maintenir [Shift] ou cliquer';
       drsBox.innerHTML = `
         <div class="container">
-          <span class="drs-label">DRS</span>
+          <div class="drs-content">
+            <span class="drs-label">DRS</span>
+            <span class="drs-pct">100%</span>
+          </div>
+          <div class="drs-meter">
+            <div class="drs-meter-fill"></div>
+          </div>
         </div>
       `;
 
@@ -1585,12 +1592,22 @@
       labelEl.textContent = opts.label || 'DRS';
     }
 
+    const pctEl = drsBox.querySelector('.drs-pct');
+    const fillEl = drsBox.querySelector('.drs-meter-fill');
+    const pctVal = Math.max(0, Math.min(100, Math.round(opts.percent !== undefined ? opts.percent : 100)));
+    if (pctEl) {
+      pctEl.textContent = pctVal + '%';
+    }
+    if (fillEl) {
+      fillEl.style.width = pctVal + '%';
+    }
+
     drsBox.style.setProperty('--drs-glow', opts.glowColor || 'rgba(34, 197, 94, 0.85)');
     drsBox.style.setProperty('--drs-bg', opts.bgColor || 'rgba(21, 128, 61, 0.95)');
 
     if (opts.isActive) {
       drsBox.className = 'box polytrack-drs-box active';
-    } else if (opts.isReady) {
+    } else if (opts.isReady && pctVal > 4) {
       drsBox.className = 'box polytrack-drs-box ready';
     } else {
       drsBox.className = 'box polytrack-drs-box disabled';
@@ -1612,7 +1629,39 @@
       const drsBox = document.getElementById('polytrack-drs-box');
       if (drsBox) drsBox.style.display = 'none';
       if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
+      powerState.planeAltitude = 0;
+      powerState.planeRoll = 0;
+      powerState.planePitch = 0;
+      powerState.isFlying = false;
       return;
+    }
+
+    // Hook carInstance position & orientation for plane flight if not already hooked
+    if (!carInstance._planeFlightHooked) {
+      carInstance._planeFlightHooked = true;
+      const origGetPosition = carInstance.getPosition;
+      carInstance.getPosition = function() {
+        const p = origGetPosition.call(this);
+        const curType = window._selectedVehicleType || getSelectedVehicleType();
+        if (curType === 'avion' && powerState.planeAltitude > 0.001) {
+          p.y += powerState.planeAltitude;
+        }
+        return p;
+      };
+
+      const origGetQuaternion = carInstance.getQuaternion;
+      carInstance.getQuaternion = function() {
+        const q = origGetQuaternion.call(this);
+        const curType = window._selectedVehicleType || getSelectedVehicleType();
+        if (curType === 'avion' && powerState.planeAltitude > 0.001 && (powerState.planePitch !== 0 || powerState.planeRoll !== 0)) {
+          try {
+            const rotEuler = new THREE.Euler(powerState.planePitch, 0, powerState.planeRoll, 'YXZ');
+            const rotQuat = new THREE.Quaternion().setFromEuler(rotEuler);
+            q.multiply(rotQuat);
+          } catch (e) {}
+        }
+        return q;
+      };
     }
 
     // Check if wheels touch ground
@@ -1620,6 +1669,19 @@
     const isGrounded = contacts.some(c => c != null && c !== false);
     const speed = Math.round(state.speedKmh || 0);
     const controls = carInstance.getControls ? carInstance.getControls() : {};
+
+    // Reset flight state on car respawn
+    if (controls.reset) {
+      powerState.planeAltitude = 0;
+      powerState.planeRoll = 0;
+      powerState.planePitch = 0;
+      powerState.isFlying = false;
+      powerState.wasFlying = false;
+      powerState.flightFuel = 100;
+      powerState.nitroFuel = 100;
+      powerState.ramEnergy = 100;
+      powerState.drsEnergy = 100;
+    }
 
     // Hide unneeded dynamic meshes for other vehicle types
     if (vType !== 'f1' && carInstance._drsFlapGroup) {
@@ -1639,7 +1701,8 @@
 
       const wantsDrs = powerState.drsKeyHeld || powerState.shiftKeyHeld;
       const isMovingForward = state.speedKmh > 15;
-      const isDrsActive = wantsDrs && isMovingForward;
+      const canDrs = powerState.drsEnergy > 2;
+      const isDrsActive = wantsDrs && isMovingForward && canDrs;
 
       // Sound feedback on state transition
       if (isDrsActive && !powerState.wasDrsActive) {
@@ -1658,7 +1721,9 @@
       }
 
       if (isDrsActive) {
-        // Drastic aerodynamic drag reduction & KERS battery surge up to 340 km/h
+        // Drain DRS energy at ~18%/sec (gives ~5.5s of continuous DRS)
+        powerState.drsEnergy = Math.max(0, powerState.drsEnergy - 18 * dt);
+
         const accelBoost = controls.up ? 38 : 16;
         state.speedKmh = Math.min(340, state.speedKmh + accelBoost * dt);
 
@@ -1682,6 +1747,8 @@
           }
         }
       } else {
+        // Regenerate DRS energy when closed at ~22%/sec (fully charged in ~4.5s)
+        powerState.drsEnergy = Math.min(powerState.maxDrsEnergy, powerState.drsEnergy + 22 * dt);
         if (powerState.fxOverlayEl) {
           powerState.fxOverlayEl.style.opacity = '0';
         }
@@ -1689,9 +1756,10 @@
 
       renderTelemetryHUD({
         label: 'DRS',
-        isReady: isMovingForward,
+        percent: powerState.drsEnergy,
+        isReady: isMovingForward && powerState.drsEnergy > 5,
         isActive: isDrsActive,
-        glowColor: 'rgba(34, 197, 94, 0.85)',
+        glowColor: 'rgba(34, 197, 94, 0.9)',
         bgColor: 'rgba(21, 128, 61, 0.95)'
       });
     }
@@ -1700,7 +1768,7 @@
     else if (vType === 'voiture') {
       const flames = ensureGtNitroFlames(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
       const wantsNitro = powerState.shiftKeyHeld || powerState.spaceKeyHeld || (controls.up && state.speedKmh > 190 && powerState.nitroFuel > 15);
-      const isNitroActive = wantsNitro && powerState.nitroFuel > 3;
+      const isNitroActive = wantsNitro && powerState.nitroFuel > 2;
 
       if (isNitroActive && !powerState.wasNitroBoosting) {
         AudioFX.playTurboSpool();
@@ -1720,7 +1788,8 @@
       }
 
       if (isNitroActive) {
-        powerState.nitroFuel = Math.max(0, powerState.nitroFuel - 36 * dt);
+        // Nitro fuel drains at 25%/sec (~4 seconds of boost)
+        powerState.nitroFuel = Math.max(0, powerState.nitroFuel - 25 * dt);
         state.speedKmh = Math.min(330, state.speedKmh + 45 * dt);
 
         if (state.position) {
@@ -1736,9 +1805,9 @@
           powerState.fxOverlayEl.style.opacity = '1';
         }
       } else {
-        // Drift reward: 3x faster recharge when drifting
+        // Regenerates at 22%/sec (or 55%/sec when drifting!)
         const isDrifting = Math.abs(state.angularVelocity ? state.angularVelocity.y : 0) > 0.9;
-        const rechargeRate = isDrifting ? 60 : 22;
+        const rechargeRate = isDrifting ? 55 : 22;
         powerState.nitroFuel = Math.min(powerState.maxNitro, powerState.nitroFuel + rechargeRate * dt);
         if (powerState.fxOverlayEl) {
           powerState.fxOverlayEl.style.opacity = '0';
@@ -1747,9 +1816,10 @@
 
       renderTelemetryHUD({
         label: 'BOOST',
+        percent: powerState.nitroFuel,
         isReady: powerState.nitroFuel > 5,
         isActive: isNitroActive,
-        glowColor: 'rgba(0, 229, 255, 0.85)',
+        glowColor: 'rgba(0, 229, 255, 0.9)',
         bgColor: 'rgba(8, 145, 178, 0.95)'
       });
     }
@@ -1757,7 +1827,7 @@
     // --- 3. CAMIONNETTE: BÉLIER CINÉTIQUE & SUPER GROUND SLAM ---
     else if (vType === 'camionnette') {
       const wantsRam = powerState.shiftKeyHeld;
-      const isRamActive = wantsRam && powerState.ramEnergy > 5;
+      const isRamActive = wantsRam && powerState.ramEnergy > 2;
 
       if (isRamActive && !powerState.wasRamming) {
         AudioFX.playKineticRam();
@@ -1766,7 +1836,8 @@
       powerState.isRamming = isRamActive;
 
       if (isRamActive) {
-        powerState.ramEnergy = Math.max(0, powerState.ramEnergy - 30 * dt);
+        // Ram energy drains at 25%/sec (~4 seconds of boost)
+        powerState.ramEnergy = Math.max(0, powerState.ramEnergy - 25 * dt);
         state.speedKmh = Math.min(285, state.speedKmh + 24 * dt);
 
         // Anti-spin heavy bulldozer stabilization
@@ -1787,7 +1858,8 @@
           powerState.fxOverlayEl.style.opacity = '1';
         }
       } else {
-        powerState.ramEnergy = Math.min(powerState.maxRamEnergy, powerState.ramEnergy + 24 * dt);
+        // Regenerates at 22%/sec
+        powerState.ramEnergy = Math.min(powerState.maxRamEnergy, powerState.ramEnergy + 22 * dt);
         if (powerState.fxOverlayEl && !powerState.slamTriggered) {
           powerState.fxOverlayEl.style.opacity = '0';
         }
@@ -1815,91 +1887,119 @@
 
       renderTelemetryHUD({
         label: powerState.slamCharged ? 'SLAM' : 'BOOST',
+        percent: powerState.ramEnergy,
         isReady: powerState.ramEnergy > 5 || powerState.slamCharged,
         isActive: isRamActive || powerState.slamTriggered,
-        glowColor: 'rgba(245, 158, 11, 0.85)',
+        glowColor: 'rgba(245, 158, 11, 0.9)',
         bgColor: 'rgba(180, 83, 9, 0.95)'
       });
     }
 
-    // --- 4. AVION: VOL PLANÉ & POSTCOMBUSTION SUPERSONIQUE ---
+    // --- 4. AVION: VOL AÉRODYNAMIQUE & POSTCOMBUSTION SUPERSONIQUE ---
     else if (vType === 'avion') {
       const jetFlames = ensurePlaneJetFlames(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
-      const wantsAfterburner = powerState.shiftKeyHeld || powerState.spaceKeyHeld;
-      const isAfterburnerActive = wantsAfterburner && powerState.afterburnerFuel > 4;
+      const wantsFlight = powerState.shiftKeyHeld || powerState.spaceKeyHeld;
+      const canFly = powerState.flightFuel > 2;
+      const isFlying = wantsFlight && canFly;
 
-      if (isAfterburnerActive && !powerState.wasAfterburning) {
+      if (isFlying && !powerState.wasFlying) {
         AudioFX.playAfterburner();
       }
-      powerState.wasAfterburning = isAfterburnerActive;
-      powerState.isAfterburning = isAfterburnerActive;
+      powerState.wasFlying = isFlying;
+      powerState.isFlying = isFlying;
 
-      // 3D jet flame jitter
+      // 3D supersonic jet flame jitter
       if (jetFlames) {
-        jetFlames.visible = isAfterburnerActive;
-        if (isAfterburnerActive) {
-          const jitter = 0.88 + Math.random() * 0.3;
-          jetFlames.scale.set(jitter, jitter, 1.0 + Math.random() * 0.45);
+        jetFlames.visible = isFlying;
+        if (isFlying) {
+          const jitter = 0.88 + Math.random() * 0.32;
+          jetFlames.scale.set(jitter, jitter, 1.05 + Math.random() * 0.5);
         }
       }
 
-      if (isAfterburnerActive) {
-        powerState.afterburnerFuel = Math.max(0, powerState.afterburnerFuel - 30 * dt);
-        state.speedKmh = Math.min(325, state.speedKmh + 38 * dt);
+      if (isFlying) {
+        // Flight fuel drains at 20%/sec -> exactly 5 seconds of flight duration
+        powerState.flightFuel = Math.max(0, powerState.flightFuel - 20 * dt);
 
+        // Target cruising altitude (11m default; climb to 24m with Up arrow; dive to 2.5m with Down arrow)
+        const targetAlt = controls.up ? 24 : (controls.down ? 2.5 : 11);
+        powerState.planeAltitude += (targetAlt - powerState.planeAltitude) * Math.min(1, dt * 3.8);
+
+        // Aerodynamic banking (roll) when steering Left or Right
+        const targetRoll = controls.left ? -0.34 : (controls.right ? 0.34 : 0);
+        powerState.planeRoll += (targetRoll - powerState.planeRoll) * Math.min(1, dt * 7.5);
+
+        // Aerodynamic pitch (nose up/down)
+        const targetPitch = controls.up ? -0.22 : (controls.down ? 0.22 : 0);
+        powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 6.5);
+
+        // In-air aerodynamic yaw steering rotation
+        const steerDir = (controls.left ? 1 : 0) - (controls.right ? 1 : 0);
+        if (steerDir !== 0 && state.quaternion) {
+          try {
+            const yawAngle = steerDir * 1.8 * dt;
+            const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawAngle);
+            const curQ = new THREE.Quaternion(state.quaternion.x, state.quaternion.y, state.quaternion.z, state.quaternion.w);
+            curQ.multiply(yawQuat);
+            state.quaternion.x = curQ.x;
+            state.quaternion.y = curQ.y;
+            state.quaternion.z = curQ.z;
+            state.quaternion.w = curQ.w;
+          } catch (e) {}
+        }
+
+        // Supersonic flight speed boost up to 325 km/h
+        state.speedKmh = Math.min(325, Math.max(state.speedKmh, 240) + 36 * dt);
+
+        // Forward thrust propulsion vector
         if (state.position) {
           const q = state.quaternion || { y: 0, w: 1 };
           const forwardX = -2 * (q.x * q.z + q.w * q.y);
           const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
-          state.position.x += forwardX * 9.2 * dt;
-          state.position.z += forwardZ * 9.2 * dt;
+          state.position.x += forwardX * 15.5 * dt;
+          state.position.z += forwardZ * 15.5 * dt;
         }
 
         if (powerState.fxOverlayEl) {
-          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(168, 85, 247, 0.25) 90%, rgba(192, 132, 252, 0.45) 100%)';
+          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(168, 85, 247, 0.22) 90%, rgba(192, 132, 252, 0.40) 100%)';
           powerState.fxOverlayEl.style.opacity = '1';
         }
       } else {
-        powerState.afterburnerFuel = Math.min(powerState.maxAfterburner, powerState.afterburnerFuel + 22 * dt);
-        if (powerState.fxOverlayEl && !powerState.isGliding) {
+        // Flight fuel regenerates at 20%/sec -> fully regenerated in 5 seconds
+        powerState.flightFuel = Math.min(powerState.maxFlightFuel, powerState.flightFuel + 20 * dt);
+
+        // Smooth landing descent if airborne
+        if (powerState.planeAltitude > 0.05) {
+          powerState.planeAltitude = Math.max(0, powerState.planeAltitude - 8.5 * dt);
+          powerState.planeRoll += (0 - powerState.planeRoll) * Math.min(1, dt * 6.0);
+          powerState.planePitch += (0 - powerState.planePitch) * Math.min(1, dt * 6.0);
+
+          // Maintain gentle forward glide during descent
+          if (state.position) {
+            const q = state.quaternion || { y: 0, w: 1 };
+            const forwardX = -2 * (q.x * q.z + q.w * q.y);
+            const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
+            state.position.x += forwardX * 5.0 * dt;
+            state.position.z += forwardZ * 5.0 * dt;
+          }
+        } else {
+          powerState.planeAltitude = 0;
+          powerState.planeRoll = 0;
+          powerState.planePitch = 0;
+        }
+
+        if (powerState.fxOverlayEl) {
           powerState.fxOverlayEl.style.opacity = '0';
         }
       }
 
-      // Glider aerodynamics in air
-      if (!isGrounded) {
-        powerState.airborneFrames++;
-        if (powerState.airborneFrames > 8 && powerState.glideRemaining > 0) {
-          powerState.isGliding = true;
-          powerState.glideRemaining = Math.max(0, powerState.glideRemaining - dt);
-
-          if (state.position && state.position.y !== undefined) {
-            const liftRate = 14.5 * (powerState.glideRemaining / powerState.maxGlide);
-            state.position.y += liftRate * dt;
-
-            const forwardX = -Math.sin(state.quaternion.y * 2);
-            const forwardZ = -Math.cos(state.quaternion.y * 2);
-            state.position.x += forwardX * 3.8 * dt;
-            state.position.z += forwardZ * 3.8 * dt;
-          }
-
-          if (powerState.fxOverlayEl && !isAfterburnerActive) {
-            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 70%, rgba(16, 185, 129, 0.18) 100%)';
-            powerState.fxOverlayEl.style.opacity = '1';
-          }
-        }
-      } else {
-        powerState.airborneFrames = 0;
-        powerState.isGliding = false;
-        powerState.glideRemaining = powerState.maxGlide;
-      }
-
       renderTelemetryHUD({
         label: 'FLIGHT',
-        isReady: powerState.afterburnerFuel > 4 || powerState.isGliding,
-        isActive: isAfterburnerActive || powerState.isGliding,
-        glowColor: powerState.isGliding ? 'rgba(52, 211, 153, 0.85)' : 'rgba(217, 70, 239, 0.85)',
-        bgColor: powerState.isGliding ? 'rgba(5, 150, 105, 0.95)' : 'rgba(162, 28, 175, 0.95)'
+        percent: powerState.flightFuel,
+        isReady: powerState.flightFuel > 5,
+        isActive: isFlying,
+        glowColor: isFlying ? 'rgba(217, 70, 239, 0.9)' : 'rgba(52, 211, 153, 0.85)',
+        bgColor: isFlying ? 'rgba(162, 28, 175, 0.95)' : 'rgba(5, 150, 105, 0.95)'
       });
     }
   }
@@ -1917,14 +2017,16 @@
       powerState.fxOverlayEl.parentNode.removeChild(powerState.fxOverlayEl);
       powerState.fxOverlayEl = null;
     }
-    powerState.isGliding = false;
+    powerState.isFlying = false;
+    powerState.wasFlying = false;
+    powerState.planeAltitude = 0;
+    powerState.planeRoll = 0;
+    powerState.planePitch = 0;
     powerState.isNitroBoosting = false;
     powerState.isDrsActive = false;
     powerState.wasDrsActive = false;
     powerState.isRamming = false;
     powerState.wasRamming = false;
-    powerState.isAfterburning = false;
-    powerState.wasAfterburning = false;
   }
 
   // --- 6. GARAGE UI ENHANCEMENTS & SHOWROOM STYLING ---
@@ -2063,9 +2165,8 @@
         bottom: 0 !important;
         margin: 0 4px 0 0 !important;
         padding: 8px 10px !important;
-        min-width: 95px !important;
-        line-height: 0 !important;
-        font-size: 40px !important;
+        min-width: 108px !important;
+        line-height: normal !important;
         color: var(--text-color, #ffffff) !important;
         text-align: center !important;
         opacity: 0.92 !important;
@@ -2088,12 +2189,14 @@
 
       .speedometer-ui #polytrack-drs-box > .container,
       .speedometer-ui > #polytrack-drs-box > .container {
+        position: relative !important;
         margin: 0 !important;
-        padding: 0 14px !important;
+        padding: 4px 12px 7px 12px !important;
         clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%) !important;
         background-color: var(--surface-tertiary-color, #1a2544) !important;
         display: flex !important;
-        align-items: center !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
         justify-content: center !important;
         width: 100% !important;
         height: 100% !important;
@@ -2106,33 +2209,82 @@
         clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 100%, 6px 100%) !important;
       }
 
+      .speedometer-ui #polytrack-drs-box .drs-content,
+      .speedometer-ui > #polytrack-drs-box .drs-content {
+        display: flex !important;
+        align-items: baseline !important;
+        justify-content: space-between !important;
+        gap: 6px !important;
+        width: 100% !important;
+      }
+
       .speedometer-ui #polytrack-drs-box .drs-label,
       .speedometer-ui > #polytrack-drs-box .drs-label {
-        font-family: ForcedSquare, forced_square, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        font-size: 24px;
-        font-weight: 900;
-        font-style: italic;
-        letter-spacing: 1.5px;
-        color: var(--text-color, #ffffff);
-        opacity: 0.45;
-        text-transform: uppercase;
-        display: inline-block;
-        white-space: nowrap;
-        transition: opacity 0.12s ease, color 0.12s ease, text-shadow 0.12s ease;
+        font-family: ForcedSquare, forced_square, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-size: 20px !important;
+        font-weight: 900 !important;
+        font-style: italic !important;
+        letter-spacing: 1.2px !important;
+        color: var(--text-color, #ffffff) !important;
+        opacity: 0.55 !important;
+        text-transform: uppercase !important;
+        white-space: nowrap !important;
+        transition: opacity 0.12s ease, color 0.12s ease, text-shadow 0.12s ease !important;
+      }
+
+      .speedometer-ui #polytrack-drs-box .drs-pct,
+      .speedometer-ui > #polytrack-drs-box .drs-pct {
+        font-family: ForcedSquare, forced_square, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-size: 15px !important;
+        font-weight: 900 !important;
+        font-style: italic !important;
+        letter-spacing: 0.5px !important;
+        color: #ffffff !important;
+        opacity: 0.75 !important;
+        text-align: right !important;
+        white-space: nowrap !important;
+        min-width: 36px !important;
+        transition: opacity 0.12s ease, color 0.12s ease, text-shadow 0.12s ease !important;
+      }
+
+      .speedometer-ui #polytrack-drs-box .drs-meter,
+      .speedometer-ui > #polytrack-drs-box .drs-meter {
+        position: absolute !important;
+        bottom: 3px !important;
+        left: 8px !important;
+        right: 8px !important;
+        height: 3px !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        border-radius: 2px !important;
+        overflow: hidden !important;
+      }
+
+      .speedometer-ui #polytrack-drs-box .drs-meter-fill,
+      .speedometer-ui > #polytrack-drs-box .drs-meter-fill {
+        height: 100% !important;
+        width: 100%;
+        background-color: var(--drs-glow, #22c55e) !important;
+        box-shadow: 0 0 6px var(--drs-glow, #22c55e) !important;
+        border-radius: 2px !important;
+        transition: width 0.06s linear, background-color 0.15s ease !important;
       }
 
       /* Ready State: Available to fire */
       .speedometer-ui #polytrack-drs-box.ready .drs-label,
       .speedometer-ui > #polytrack-drs-box.ready .drs-label {
-        opacity: 0.95;
-        color: #ffffff;
+        opacity: 0.95 !important;
+        color: #ffffff !important;
+      }
+      .speedometer-ui #polytrack-drs-box.ready .drs-pct,
+      .speedometer-ui > #polytrack-drs-box.ready .drs-pct {
+        opacity: 0.95 !important;
       }
 
       /* Active State: [Shift] held & power running */
       .speedometer-ui #polytrack-drs-box.active,
       .speedometer-ui > #polytrack-drs-box.active {
-        transform: translateY(2px);
-        filter: drop-shadow(0 0 10px var(--drs-glow, rgba(34, 197, 94, 0.85)));
+        transform: translateY(2px) !important;
+        filter: drop-shadow(0 0 10px var(--drs-glow, rgba(34, 197, 94, 0.85))) !important;
       }
       .speedometer-ui #polytrack-drs-box.active > .container,
       .speedometer-ui > #polytrack-drs-box.active > .container {
@@ -2140,20 +2292,30 @@
       }
       .speedometer-ui #polytrack-drs-box.active .drs-label,
       .speedometer-ui > #polytrack-drs-box.active .drs-label {
-        opacity: 1;
-        color: #ffffff;
-        text-shadow: 0 0 10px #ffffff, 0 0 18px var(--drs-glow, #4ade80);
+        opacity: 1 !important;
+        color: #ffffff !important;
+        text-shadow: 0 0 10px #ffffff, 0 0 18px var(--drs-glow, #4ade80) !important;
+      }
+      .speedometer-ui #polytrack-drs-box.active .drs-pct,
+      .speedometer-ui > #polytrack-drs-box.active .drs-pct {
+        opacity: 1 !important;
+        color: #ffffff !important;
+        text-shadow: 0 0 8px #ffffff, 0 0 14px var(--drs-glow, #4ade80) !important;
       }
 
       /* Disabled State: empty / recharging */
       .speedometer-ui #polytrack-drs-box.disabled,
       .speedometer-ui > #polytrack-drs-box.disabled {
-        opacity: 0.65;
-        filter: grayscale(0.5);
+        opacity: 0.65 !important;
+        filter: grayscale(0.5) !important;
       }
       .speedometer-ui #polytrack-drs-box.disabled .drs-label,
       .speedometer-ui > #polytrack-drs-box.disabled .drs-label {
-        opacity: 0.3;
+        opacity: 0.3 !important;
+      }
+      .speedometer-ui #polytrack-drs-box.disabled .drs-pct,
+      .speedometer-ui > #polytrack-drs-box.disabled .drs-pct {
+        opacity: 0.35 !important;
       }
 
       .customization-panel-ui > .options-panel > button.vehicle-option-btn .vehicle-preview-tooltip {
