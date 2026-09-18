@@ -2093,12 +2093,12 @@
         }
       }
 
-      // Aviation HUD Crosshair follows mouse cursor with smooth opacity
+      // Aviation HUD Crosshair visible ONLY in flight
       const crosshair = ensureFlightCrosshair();
       if (crosshair) {
         const crosshairOpacity = powerState.flightBlend > 0.05 
-          ? (0.2 + 0.8 * powerState.flightBlend) 
-          : (isGrounded ? 0.35 : 0);
+          ? Math.min(1, powerState.flightBlend) 
+          : 0;
         crosshair.style.opacity = String(crosshairOpacity);
         crosshair.style.left = powerState.mouseX + 'px';
         crosshair.style.top = powerState.mouseY + 'px';
@@ -2126,24 +2126,8 @@
         aimY = (powerState.mouseAimY - Math.sign(powerState.mouseAimY) * deadzoneY) / (1 - deadzoneY);
       }
 
-      // Ground steering via mouse when driving on track
-      if (inputCtrl && isGrounded && powerState.flightBlend < 0.2) {
-        if (aimX < -0.12) {
-          inputCtrl.left = true;
-          inputCtrl.right = false;
-        } else if (aimX > 0.12) {
-          inputCtrl.right = true;
-          inputCtrl.left = false;
-        } else {
-          const keys = carInstance.getControls ? carInstance.getControls() : {};
-          if (!keys.left) inputCtrl.left = false;
-          if (!keys.right) inputCtrl.right = false;
-        }
-        if (powerState.mouseLeftClick) inputCtrl.up = true;
-        if (powerState.mouseRightClick) inputCtrl.down = true;
-      }
-
-      // In flight: suppress physics engine tumbling torque
+      // In flight: suppress physics engine tumbling torque so flight stays straight
+      // When on the ground: inputCtrl is NEVER touched, controls are 100% normal ZQSD
       if (inputCtrl && isFlying) {
         inputCtrl.left = false;
         inputCtrl.right = false;
