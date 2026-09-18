@@ -873,12 +873,12 @@
       badge: 'POSTCOMBUSTION',
       tag: 'CHASSEUR SUPERSONIQUE',
       image: 'images/vehicle_plane.svg',
-      subtitle: 'Tricycle 3 Roues, Vol & Postcombustion',
+      subtitle: 'Tricycle 3 Roues & Vol Plané',
       icon: '✈️',
       color: '#a855f7',
-      powerName: '🚀 Postcombustion & Vol Plané',
-      powerKey: 'MAINTENIR [SHIFT] / EN L\'AIR',
-      powerDesc: 'Réacteurs de postcombustion (+35 km/h avec flammes violettes 3D) et portance de vol plané en l\'air. Strictement 3 roues.',
+      powerName: '✈️ Vol Plané & Pilotage Aérien',
+      powerKey: '[SHIFT] EN L\'AIR + ZQSD',
+      powerDesc: 'Prenez un tremplin et maintenez [Shift] en l\'air pour planer. Contrôlez l\'avion avec ZQSD : Z pour cabrer, S pour plonger, Q/D pour incliner et virer.',
       stats: { speed: 94, accel: 88, grip: 74, aero: 100 },
       statLabels: { speed: '325 km/h', accel: '1.9s', grip: 'Tricycle', aero: 'Vol Plané' }
     }
@@ -1485,11 +1485,37 @@
     planeAltitude: 0,
     planeRoll: 0,
     planePitch: 0,
+    keyUp: false,
+    keyDown: false,
+    keyLeft: false,
+    keyRight: false,
 
     // UI Elements
     hudEl: null,
     fxOverlayEl: null
   };
+
+  function handleFlightKey(e, isPressed) {
+    const code = e.code;
+    const key = e.key ? e.key.toLowerCase() : '';
+
+    // Z / W / ArrowUp -> UP (Cabrer / Planer plus haut)
+    if (code === 'KeyZ' || code === 'KeyW' || key === 'z' || key === 'w' || code === 'ArrowUp') {
+      powerState.keyUp = isPressed;
+    }
+    // S / ArrowDown -> DOWN (Piquer du nez / Descendre)
+    if (code === 'KeyS' || key === 's' || code === 'ArrowDown') {
+      powerState.keyDown = isPressed;
+    }
+    // Q / A / ArrowLeft -> LEFT (Roulis & Virage à gauche)
+    if (code === 'KeyQ' || code === 'KeyA' || key === 'q' || key === 'a' || code === 'ArrowLeft') {
+      powerState.keyLeft = isPressed;
+    }
+    // D / ArrowRight -> RIGHT (Roulis & Virage à droite)
+    if (code === 'KeyD' || key === 'd' || code === 'ArrowRight') {
+      powerState.keyRight = isPressed;
+    }
+  }
 
   window.addEventListener('keydown', e => {
     if (e.code === 'Space') {
@@ -1499,6 +1525,7 @@
       powerState.shiftKeyHeld = true;
       powerState.drsKeyHeld = true;
     }
+    handleFlightKey(e, true);
   });
   window.addEventListener('keyup', e => {
     if (e.code === 'Space') {
@@ -1508,11 +1535,16 @@
       powerState.shiftKeyHeld = false;
       powerState.drsKeyHeld = false;
     }
+    handleFlightKey(e, false);
   });
   window.addEventListener('blur', () => {
     powerState.spaceKeyHeld = false;
     powerState.shiftKeyHeld = false;
     powerState.drsKeyHeld = false;
+    powerState.keyUp = false;
+    powerState.keyDown = false;
+    powerState.keyLeft = false;
+    powerState.keyRight = false;
   });
 
   function ensureDrsHUD() {
@@ -1688,6 +1720,10 @@
     const isGrounded = contacts.some(c => c != null && c !== false);
     const speed = Math.round(state.speedKmh || 0);
     const controls = carInstance.getControls ? carInstance.getControls() : {};
+    const isUp = !!(controls.up || powerState.keyUp);
+    const isDown = !!(controls.down || powerState.keyDown);
+    const isLeft = !!(controls.left || powerState.keyLeft);
+    const isRight = !!(controls.right || powerState.keyRight);
 
     // Reset flight state on car respawn
     if (controls.reset) {
@@ -1948,28 +1984,28 @@
         // Flight fuel drains at 20%/sec -> 5 seconds of active air control
         powerState.flightFuel = Math.max(0, powerState.flightFuel - 20 * dt);
 
-        // Aerodynamic flight control in the air:
-        // [Up arrow]: pitch up, slow descent or slight lift
-        // [Down arrow]: dive nose down toward the track
-        // Neutral: smooth aerodynamic glide
+        // Aerodynamic flight control in the air (ZQSD / WASD / Flèches) :
+        // Z (ou Flèche Haut) : Cabrer le nez / planer plus loin
+        // S (ou Flèche Bas) : Piquer du nez vers la piste
+        // Q / D (ou Flèches Gauche/Droite) : Roulis & virage dans les airs
         let targetPitch = 0.0;
         let liftRate = 1.2; // gentle glide lift countering gravity
-        if (controls.up) {
+        if (isUp) {
           targetPitch = -0.26;
           liftRate = 5.2; // climb / extend jump
-        } else if (controls.down) {
+        } else if (isDown) {
           targetPitch = 0.26;
           liftRate = -6.5; // dive down
         }
         powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 6.0);
         powerState.planeAltitude = Math.min(16, Math.max(0, powerState.planeAltitude + liftRate * dt));
 
-        // Aerodynamic banking (roll) when steering Left or Right
-        const targetRoll = controls.left ? -0.36 : (controls.right ? 0.36 : 0);
+        // Aerodynamic banking (roll) when steering Left or Right (Q vs D)
+        const targetRoll = isLeft ? -0.36 : (isRight ? 0.36 : 0);
         powerState.planeRoll += (targetRoll - powerState.planeRoll) * Math.min(1, dt * 7.5);
 
-        // Aerodynamic yaw steering rotation in the air
-        const steerDir = (controls.left ? 1 : 0) - (controls.right ? 1 : 0);
+        // Aerodynamic yaw steering rotation in the air (Q vs D)
+        const steerDir = (isLeft ? 1 : 0) - (isRight ? 1 : 0);
         if (steerDir !== 0 && state.quaternion) {
           try {
             const yawAngle = steerDir * 1.6 * dt;
