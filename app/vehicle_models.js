@@ -1480,15 +1480,16 @@
     // Flight & Aerodynamic Jet Glider (Avion)
     isFlying: false,
     wasFlying: false,
+    flightBlend: 0,
     flightFuel: 100,
     maxFlightFuel: 100,
+    flightHeading: 0,
+    flightQuat: null,
     planeAltitude: 0,
+    targetAltitude: 0,
     planeRoll: 0,
     planePitch: 0,
     planeYaw: 0,
-    flightOffsetX: 0,
-    flightOffsetY: 0,
-    flightOffsetZ: 0,
     airThrust: 0,
     mouseX: typeof window !== 'undefined' ? window.innerWidth / 2 : 0,
     mouseY: typeof window !== 'undefined' ? window.innerHeight / 2 : 0,
@@ -1732,13 +1733,12 @@
       if (drsBox) drsBox.style.display = 'none';
       if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
       if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
+      powerState.flightBlend = 0;
       powerState.planeAltitude = 0;
+      powerState.targetAltitude = 0;
       powerState.planeRoll = 0;
       powerState.planePitch = 0;
       powerState.planeYaw = 0;
-      powerState.flightOffsetX = 0;
-      powerState.flightOffsetY = 0;
-      powerState.flightOffsetZ = 0;
       powerState.isFlying = false;
       return;
     }
@@ -1751,10 +1751,8 @@
       carInstance.getPosition = function() {
         const p = origGetPosition.call(this);
         const curType = window._selectedVehicleType || getSelectedVehicleType();
-        if (curType === 'avion') {
-          p.x += powerState.flightOffsetX;
-          p.y += (powerState.flightOffsetY + powerState.planeAltitude);
-          p.z += powerState.flightOffsetZ;
+        if (curType === 'avion' && powerState.flightBlend > 0.001) {
+          p.y += (powerState.planeAltitude || 0.6) * powerState.flightBlend;
         }
         return p;
       };
@@ -1764,11 +1762,9 @@
       carInstance.getQuaternion = function() {
         const q = origGetQuaternion.call(this);
         const curType = window._selectedVehicleType || getSelectedVehicleType();
-        if (curType === 'avion') {
+        if (curType === 'avion' && powerState.flightBlend > 0.001 && powerState.flightQuat) {
           try {
-            const rotEuler = new THREE.Euler(powerState.planePitch, powerState.planeYaw, powerState.planeRoll, 'YXZ');
-            const rotQuat = new THREE.Quaternion().setFromEuler(rotEuler);
-            q.multiply(rotQuat);
+            q.slerp(powerState.flightQuat, powerState.flightBlend);
           } catch (e) {}
         }
         return q;
@@ -1788,13 +1784,13 @@
     // Reset flight state on car respawn
     if (controls.reset) {
       if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
+      powerState.flightBlend = 0;
       powerState.planeAltitude = 0;
+      powerState.targetAltitude = 0;
+      powerState.flightHeading = 0;
       powerState.planeRoll = 0;
       powerState.planePitch = 0;
       powerState.planeYaw = 0;
-      powerState.flightOffsetX = 0;
-      powerState.flightOffsetY = 0;
-      powerState.flightOffsetZ = 0;
       powerState.airThrust = 0;
       powerState.isFlying = false;
       powerState.wasFlying = false;
@@ -2016,25 +2012,98 @@
       });
     }
 
-    // --- 4. AVION: CONTRÔLE DE VOL AÉRODYNAMIQUE GUIDÉ PAR LA SOURIS ---
+    // --- 4. AVION: CONTRÔLE DE VOL AÉRODYNAMIQUE STABLE & TRANSITION CLEAN ---
     else if (vType === 'avion') {
       const jetFlames = ensurePlaneJetFlames(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
       const inputCtrl = ne ? (0, l.gn)(carInstance, ne, "f") : null;
 
-      // Aviation HUD Crosshair follows mouse cursor on screen
+      // Track airborne status
+      if (!isGrounded) {
+        powerState.airborneFrames++;
+      } else {
+        powerState.airborneFrames = 0;
+      }
+
+      // Ensure flightQuat exists
+      if (!powerState.flightQuat && typeof THREE !== 'undefined') {
+        powerState.flightQuat = new THREE.Quaternion();
+      }
+
+      // Flight triggering:
+      // Active whenever airborne (after jump / tremplin) with available fuel
+      const isNaturallyAirborne = !isGrounded && powerState.airborneFrames >= 1;
+      const canFly = powerState.flightFuel > 1;
+      const isFlying = isNaturallyAirborne && canFly;
+
+      // On takeoff entry:
+      if (isFlying && !powerState.wasFlying) {
+        // Extract launch heading from current vehicle orientation
+        const sq = state.quaternion || { x: 0, y: 0, z: 0, w: 1 };
+        const fx = 2 * (sq.x * sq.z + sq.w * sq.y);
+        const fz = 1 - 2 * (sq.x * sq.x + sq.y * sq.y);
+        powerState.flightHeading = Math.atan2(fx, fz);
+        powerState.planePitch = 0;
+        powerState.planeRoll = 0;
+        powerState.planeAltitude = 0.6;
+        AudioFX.playGliderGlide();
+      }
+      powerState.wasFlying = isFlying;
+      powerState.isFlying = isFlying;
+
+      // --- BUTTER-SMOOTH TRANSITION BLEND (VOL & ATTERRISSAGE CLEAN) ---
+      if (isFlying) {
+        // Smooth ramp up to flight over ~0.25s
+        powerState.flightBlend = Math.min(1.0, powerState.flightBlend + 3.8 * dt);
+        // Fuel drains smoothly in flight (~5.5s active flight)
+        powerState.flightFuel = Math.max(0, powerState.flightFuel - 18 * dt);
+      } else {
+        // Smooth touch-down ramp to ground over ~0.3s
+        powerState.flightBlend = Math.max(0.0, powerState.flightBlend - 3.4 * dt);
+        if (isGrounded) {
+          // Fuel regenerates on ground (+22%/sec -> full in ~4.5s)
+          powerState.flightFuel = Math.min(powerState.maxFlightFuel, powerState.flightFuel + 22 * dt);
+        }
+      }
+
+      // Aviation HUD Crosshair follows mouse cursor with smooth opacity
       const crosshair = ensureFlightCrosshair();
       if (crosshair) {
-        crosshair.style.opacity = '1';
+        const crosshairOpacity = powerState.flightBlend > 0.05 
+          ? (0.2 + 0.8 * powerState.flightBlend) 
+          : (isGrounded ? 0.35 : 0);
+        crosshair.style.opacity = String(crosshairOpacity);
         crosshair.style.left = powerState.mouseX + 'px';
         crosshair.style.top = powerState.mouseY + 'px';
       }
 
-      // Ground steering & acceleration via mouse
-      if (inputCtrl && isGrounded) {
-        if (powerState.mouseAimX < -0.14) {
+      // 3D jet flame thrust visualization (scales smoothly with flightBlend)
+      if (jetFlames) {
+        const showFlames = powerState.flightBlend > 0.05;
+        jetFlames.visible = showFlames;
+        if (showFlames) {
+          const jitter = (0.85 + Math.random() * 0.3) * powerState.flightBlend;
+          jetFlames.scale.set(jitter, jitter, (1.05 + Math.random() * 0.4) * powerState.flightBlend);
+        }
+      }
+
+      // Normalized mouse offset with deadzone for rock-solid center stability
+      const deadzoneX = 0.08;
+      const deadzoneY = 0.08;
+      let aimX = 0;
+      if (Math.abs(powerState.mouseAimX) > deadzoneX) {
+        aimX = (powerState.mouseAimX - Math.sign(powerState.mouseAimX) * deadzoneX) / (1 - deadzoneX);
+      }
+      let aimY = 0;
+      if (Math.abs(powerState.mouseAimY) > deadzoneY) {
+        aimY = (powerState.mouseAimY - Math.sign(powerState.mouseAimY) * deadzoneY) / (1 - deadzoneY);
+      }
+
+      // Ground steering via mouse when driving on track
+      if (inputCtrl && isGrounded && powerState.flightBlend < 0.2) {
+        if (aimX < -0.12) {
           inputCtrl.left = true;
           inputCtrl.right = false;
-        } else if (powerState.mouseAimX > 0.14) {
+        } else if (aimX > 0.12) {
           inputCtrl.right = true;
           inputCtrl.left = false;
         } else {
@@ -2046,128 +2115,94 @@
         if (powerState.mouseRightClick) inputCtrl.down = true;
       }
 
-      // Track airborne status
-      if (!isGrounded) {
-        powerState.airborneFrames++;
-      } else {
-        powerState.airborneFrames = 0;
+      // In flight: suppress physics engine tumbling torque
+      if (inputCtrl && isFlying) {
+        inputCtrl.left = false;
+        inputCtrl.right = false;
       }
 
-      // Flight triggering:
-      // Active whenever airborne (off a tremplin/ramp or bump)
-      // OR taking off when driving fast (> 105 km/h) and pulling mouse UP!
-      const isNaturallyAirborne = !isGrounded && powerState.airborneFrames >= 1;
-      const isPullingUp = isGrounded && powerState.mouseAimY < -0.28 && state.speedKmh > 105;
-      const wantsFlight = isNaturallyAirborne || (isPullingUp && powerState.flightFuel > 10);
-      const canFly = powerState.flightFuel > 2;
-      const isFlying = wantsFlight && canFly;
-
-      if (isFlying && !powerState.wasFlying) {
-        AudioFX.playGliderGlide();
-      }
-      powerState.wasFlying = isFlying;
-      powerState.isFlying = isFlying;
-
-      // 3D jet flame thrust visualization in flight
-      if (jetFlames) {
-        jetFlames.visible = isFlying;
+      if (powerState.flightBlend > 0.005) {
+        // --- 1. L'AVION RESTE PARFAITEMENT DROIT (Auto-Leveling & Heading Steering) ---
         if (isFlying) {
-          const jitter = 0.85 + Math.random() * 0.3;
-          jetFlames.scale.set(jitter, jitter, 1.05 + Math.random() * 0.4);
-        }
-      }
+          // Smooth heading turn when mouse is moved horizontally
+          if (Math.abs(aimX) > 0.01) {
+            powerState.flightHeading += aimX * 1.85 * dt;
+          }
 
-      if (isFlying) {
-        // Flight fuel drains at 18%/sec -> gives ~5.5s of continuous active flight
-        powerState.flightFuel = Math.max(0, powerState.flightFuel - 18 * dt);
-
-        // CONTINUOUS ACCELERATION ALL THE TIME IN THE AIR ("surtout sa doit accélerer tout le temps quand on est dans les airs")
-        state.speedKmh = Math.min(390, (state.speedKmh || 180) + 45 * dt);
-
-        // Deadzone around screen center to avoid accidental micro-drift
-        const deadzone = 0.05;
-        let aimX = 0;
-        if (Math.abs(powerState.mouseAimX) > deadzone) {
-          aimX = (powerState.mouseAimX - Math.sign(powerState.mouseAimX) * deadzone) / (1 - deadzone);
-        }
-        let aimY = 0;
-        if (Math.abs(powerState.mouseAimY) > deadzone) {
-          aimY = (powerState.mouseAimY - Math.sign(powerState.mouseAimY) * deadzone) / (1 - deadzone);
-        }
-
-        // --- VERTICAL FLIGHT CONTROL (PITCH & ALTITUDE) based on mouse Y ---
-        // aimY < 0 (souris vers le haut) -> Monter vers le ciel (climb) & cabrer le nez
-        // aimY > 0 (souris vers le bas)  -> Piquer vers le sol (dive) & descendre
-        let targetPitch = 0.0;
-        if (aimY < 0) {
-          const climbIntensity = -aimY; // 0 to 1
-          targetPitch = -0.42 * climbIntensity; // Nose up
-          powerState.flightOffsetY = Math.min(50, powerState.flightOffsetY + climbIntensity * 16.0 * dt);
-        } else if (aimY > 0) {
-          const diveIntensity = aimY; // 0 to 1
-          targetPitch = 0.42 * diveIntensity; // Nose down
-          powerState.flightOffsetY = Math.max(0, powerState.flightOffsetY - diveIntensity * 18.0 * dt);
+          // Target angles bounded and auto-centering to 0:
+          // aimX = 0, aimY = 0 -> targetPitch = 0 (horizon level), targetRoll = 0 (wings level)!
+          const targetRoll = -aimX * 0.30; // Gentle aerodynamic wing bank
+          const targetPitch = aimY * 0.22;  // Natural nose elevation
+          powerState.planeRoll += (targetRoll - powerState.planeRoll) * Math.min(1, dt * 8.5);
+          powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 7.5);
         } else {
-          // Neutral center: gentle glide lift countering gravity
-          powerState.flightOffsetY = Math.min(30, powerState.flightOffsetY + 2.5 * dt);
+          // Landing approach / Touch-down: auto-level wings and nose smoothly flat
+          powerState.planeRoll += (0 - powerState.planeRoll) * Math.min(1, dt * 10.0);
+          powerState.planePitch += (0 - powerState.planePitch) * Math.min(1, dt * 10.0);
+          powerState.planeAltitude += (0 - powerState.planeAltitude) * Math.min(1, dt * 8.0);
         }
-        powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 8.5);
 
-        // --- HORIZONTAL FLIGHT CONTROL (YAW & ROLL) based on mouse X ---
-        // aimX < 0 (souris vers la gauche) -> Incline les ailes à gauche et vire à gauche
-        // aimX > 0 (souris vers la droite) -> Incline les ailes à droite et vire à droite
-        if (Math.abs(aimX) > 0.01) {
-          const yawTurnRate = -aimX * 3.2; // Radians/sec in heading
-          powerState.planeYaw += yawTurnRate * dt;
+        // Build absolute flight quaternion
+        if (powerState.flightQuat && typeof THREE !== 'undefined') {
+          const rotEuler = new THREE.Euler(
+            powerState.planePitch,
+            powerState.flightHeading,
+            powerState.planeRoll,
+            'YXZ'
+          );
+          powerState.flightQuat.setFromEuler(rotEuler);
+
+          // Keep physics state orientation aligned so landing wheels touch flat
+          if (state.quaternion && powerState.flightBlend > 0.25) {
+            state.quaternion.x = powerState.flightQuat.x;
+            state.quaternion.y = powerState.flightQuat.y;
+            state.quaternion.z = powerState.flightQuat.z;
+            state.quaternion.w = powerState.flightQuat.w;
+          }
         }
-        const targetRoll = aimX * 0.58; // Bank angle follows mouse X
-        powerState.planeRoll += (targetRoll - powerState.planeRoll) * Math.min(1, dt * 9.0);
 
-        // --- 3D FORWARD AERODYNAMIC FLIGHT PROPULSION ALONG ACTUAL 3D COMPOSITE HEADING ---
-        // Forward vector in PolyTrack is (0, 0, -1)
-        const baseQuat = carInstance._origGetQuaternion ? carInstance._origGetQuaternion.call(carInstance) : new THREE.Quaternion();
-        const rotEuler = new THREE.Euler(powerState.planePitch, powerState.planeYaw, powerState.planeRoll, 'YXZ');
-        const rotQuat = new THREE.Quaternion().setFromEuler(rotEuler);
-        const totalQuat = baseQuat.clone().multiply(rotQuat);
-        const forwardVec = new THREE.Vector3(0, 0, -1).applyQuaternion(totalQuat);
+        // --- 2. AERODYNAMIC IN-AIR PROPULSION & LIFT ---
+        if (isFlying) {
+          // Accelerate continuously in flight up to 380 km/h
+          state.speedKmh = Math.min(380, (state.speedKmh || 180) + 40 * powerState.flightBlend * dt);
 
-        powerState.airThrust = Math.min(42.0, (powerState.airThrust || 16.0) + 16.0 * dt);
-        powerState.flightOffsetX += forwardVec.x * powerState.airThrust * dt;
-        powerState.flightOffsetY += forwardVec.y * powerState.airThrust * dt;
-        powerState.flightOffsetZ += forwardVec.z * powerState.airThrust * dt;
+          if (state.position) {
+            // Forward thrust along flightHeading
+            const fx = Math.sin(powerState.flightHeading);
+            const fz = Math.cos(powerState.flightHeading);
+            const thrust = (16.0 + Math.min(26.0, state.speedKmh / 12.0)) * powerState.flightBlend;
+            state.position.x += fx * thrust * dt;
+            state.position.z += fz * thrust * dt;
 
-        if (powerState.fxOverlayEl) {
-          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(168, 85, 247, 0.20) 90%, rgba(192, 132, 252, 0.38) 100%)';
-          powerState.fxOverlayEl.style.opacity = '1';
+            // Vertical flight lift: climb when aimY < 0, dive when aimY > 0, neutral glide when 0
+            if (aimY < 0) {
+              const climb = -aimY;
+              state.position.y += (10.0 + climb * 20.0) * powerState.flightBlend * dt;
+            } else if (aimY > 0) {
+              const dive = aimY;
+              state.position.y -= (dive * 16.0) * powerState.flightBlend * dt;
+            } else {
+              // Level cruise countering gravity
+              state.position.y += 10.0 * powerState.flightBlend * dt;
+            }
+          }
+
+          if (powerState.fxOverlayEl) {
+            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 68%, rgba(168, 85, 247, 0.18) 90%, rgba(192, 132, 252, 0.32) 100%)';
+            powerState.fxOverlayEl.style.opacity = '1';
+          }
+        } else {
+          if (powerState.fxOverlayEl) {
+            powerState.fxOverlayEl.style.opacity = '0';
+          }
         }
       } else {
-        // Flight fuel regenerates at 22%/sec -> fully regenerated in ~4.5 seconds
-        powerState.flightFuel = Math.min(powerState.maxFlightFuel, powerState.flightFuel + 22 * dt);
-        powerState.airThrust = 0;
-
-        // If plane touches ground, smoothly settle offsets back to road level
-        if (isGrounded) {
-          powerState.flightOffsetY = Math.max(0, powerState.flightOffsetY - 22.0 * dt);
-          powerState.planePitch += (0 - powerState.planePitch) * Math.min(1, dt * 10.0);
-          powerState.planeRoll += (0 - powerState.planeRoll) * Math.min(1, dt * 10.0);
-          powerState.planeYaw += (0 - powerState.planeYaw) * Math.min(1, dt * 6.0);
-          powerState.flightOffsetX *= Math.max(0, 1 - 6 * dt);
-          powerState.flightOffsetZ *= Math.max(0, 1 - 6 * dt);
-          if (powerState.flightOffsetY < 0.05) {
-            powerState.flightOffsetX = 0;
-            powerState.flightOffsetY = 0;
-            powerState.flightOffsetZ = 0;
-            powerState.planeYaw = 0;
-            powerState.planePitch = 0;
-            powerState.planeRoll = 0;
-          }
-        } else if (powerState.flightOffsetY > 0.05) {
-          // If in air but out of fuel, smoothly settle down
-          powerState.flightOffsetY = Math.max(0, powerState.flightOffsetY - 9.0 * dt);
-          powerState.planeRoll += (0 - powerState.planeRoll) * Math.min(1, dt * 6.0);
-          powerState.planePitch += (0 - powerState.planePitch) * Math.min(1, dt * 6.0);
-        }
-
+        // Completely on the ground: reset flight offsets
+        powerState.planeAltitude = 0;
+        powerState.targetAltitude = 0;
+        powerState.planePitch = 0;
+        powerState.planeRoll = 0;
+        powerState.planeYaw = 0;
         if (powerState.fxOverlayEl) {
           powerState.fxOverlayEl.style.opacity = '0';
         }
