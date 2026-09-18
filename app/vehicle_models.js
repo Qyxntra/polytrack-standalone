@@ -873,14 +873,14 @@
       badge: 'POSTCOMBUSTION',
       tag: 'CHASSEUR SUPERSONIQUE',
       image: 'images/vehicle_plane.svg',
-      subtitle: 'Vol Aérien ZQSD & Accélération Continue',
+      subtitle: 'Guidage à la Souris & Accélération Continue',
       icon: '✈️',
       color: '#a855f7',
-      powerName: '✈️ Vol Aérien & Postcombustion',
-      powerKey: 'TREMPLIN + ZQSD',
-      powerDesc: 'Prenez un tremplin pour décoller ! L\'avion accélère en continu dans les airs (jusqu\'à 380 km/h). Pilotage ZQSD : Z pour monter, S pour descendre, Q/D pour virer.',
+      powerName: '✈️ Guidage Souris & Postcombustion',
+      powerKey: 'TREMPLIN + SOURIS',
+      powerDesc: 'Prenez un tremplin pour décoller ! L\'avion accélère en continu dans les airs et suit les mouvements de votre souris (Haut pour monter, Bas pour descendre, Gauche/Droite pour virer).',
       stats: { speed: 96, accel: 92, grip: 74, aero: 100 },
-      statLabels: { speed: '380 km/h', accel: 'Continu En L\'Air', grip: 'Tricycle', aero: 'Vol 3D ZQSD' }
+      statLabels: { speed: '380 km/h', accel: 'Continu En L\'Air', grip: 'Tricycle', aero: 'Guidage Souris' }
     }
   };
 
@@ -1485,37 +1485,39 @@
     planeAltitude: 0,
     planeRoll: 0,
     planePitch: 0,
-    keyUp: false,
-    keyDown: false,
-    keyLeft: false,
-    keyRight: false,
+    airThrust: 0,
+    mouseX: typeof window !== 'undefined' ? window.innerWidth / 2 : 0,
+    mouseY: typeof window !== 'undefined' ? window.innerHeight / 2 : 0,
+    mouseAimX: 0,
+    mouseAimY: 0,
+    crosshairEl: null,
 
     // UI Elements
     hudEl: null,
     fxOverlayEl: null
   };
 
-  function handleFlightKey(e, isPressed) {
-    const code = e.code;
-    const key = e.key ? e.key.toLowerCase() : '';
+  // Mouse & Touch Tracking for Aerodynamic Flight
+  window.addEventListener('mousemove', e => {
+    powerState.mouseX = e.clientX;
+    powerState.mouseY = e.clientY;
+    const halfW = (window.innerWidth / 2) || 1;
+    const halfH = (window.innerHeight / 2) || 1;
+    powerState.mouseAimX = Math.max(-1, Math.min(1, (e.clientX - halfW) / halfW));
+    powerState.mouseAimY = Math.max(-1, Math.min(1, (e.clientY - halfH) / halfH));
+  });
 
-    // Z / W / ArrowUp -> UP (Cabrer / Planer plus haut)
-    if (code === 'KeyZ' || code === 'KeyW' || key === 'z' || key === 'w' || code === 'ArrowUp') {
-      powerState.keyUp = isPressed;
+  window.addEventListener('touchmove', e => {
+    if (e.touches && e.touches[0]) {
+      const t = e.touches[0];
+      powerState.mouseX = t.clientX;
+      powerState.mouseY = t.clientY;
+      const halfW = (window.innerWidth / 2) || 1;
+      const halfH = (window.innerHeight / 2) || 1;
+      powerState.mouseAimX = Math.max(-1, Math.min(1, (t.clientX - halfW) / halfW));
+      powerState.mouseAimY = Math.max(-1, Math.min(1, (t.clientY - halfH) / halfH));
     }
-    // S / ArrowDown -> DOWN (Piquer du nez / Descendre)
-    if (code === 'KeyS' || key === 's' || code === 'ArrowDown') {
-      powerState.keyDown = isPressed;
-    }
-    // Q / A / ArrowLeft -> LEFT (Roulis & Virage à gauche)
-    if (code === 'KeyQ' || code === 'KeyA' || key === 'q' || key === 'a' || code === 'ArrowLeft') {
-      powerState.keyLeft = isPressed;
-    }
-    // D / ArrowRight -> RIGHT (Roulis & Virage à droite)
-    if (code === 'KeyD' || key === 'd' || code === 'ArrowRight') {
-      powerState.keyRight = isPressed;
-    }
-  }
+  }, { passive: true });
 
   window.addEventListener('keydown', e => {
     if (e.code === 'Space') {
@@ -1525,7 +1527,6 @@
       powerState.shiftKeyHeld = true;
       powerState.drsKeyHeld = true;
     }
-    handleFlightKey(e, true);
   });
   window.addEventListener('keyup', e => {
     if (e.code === 'Space') {
@@ -1535,16 +1536,13 @@
       powerState.shiftKeyHeld = false;
       powerState.drsKeyHeld = false;
     }
-    handleFlightKey(e, false);
   });
   window.addEventListener('blur', () => {
     powerState.spaceKeyHeld = false;
     powerState.shiftKeyHeld = false;
     powerState.drsKeyHeld = false;
-    powerState.keyUp = false;
-    powerState.keyDown = false;
-    powerState.keyLeft = false;
-    powerState.keyRight = false;
+    powerState.mouseAimX = 0;
+    powerState.mouseAimY = 0;
   });
 
   function ensureDrsHUD() {
@@ -1633,6 +1631,42 @@
     return drsBox;
   }
 
+  function ensureFlightCrosshair() {
+    let el = document.getElementById('polytrack-flight-crosshair');
+    if (!el || !document.body.contains(el)) {
+      el = document.createElement('div');
+      el.id = 'polytrack-flight-crosshair';
+      el.style.cssText = `
+        position: fixed;
+        width: 52px;
+        height: 52px;
+        top: 50%;
+        left: 50%;
+        pointer-events: none;
+        z-index: 950;
+        transform: translate(-50%, -50%);
+        transition: opacity 0.15s ease;
+        opacity: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
+      el.innerHTML = `
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="26" cy="26" r="16" stroke="rgba(192, 132, 252, 0.9)" stroke-width="2" stroke-dasharray="5 3"/>
+          <circle cx="26" cy="26" r="3.5" fill="#a855f7"/>
+          <line x1="2" y1="26" x2="12" y2="26" stroke="#f3e8ff" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="40" y1="26" x2="50" y2="26" stroke="#f3e8ff" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="26" y1="2" x2="26" y2="12" stroke="#f3e8ff" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="26" y1="40" x2="26" y2="50" stroke="#f3e8ff" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      `;
+      document.body.appendChild(el);
+      powerState.crosshairEl = el;
+    }
+    return el;
+  }
+
   function renderTelemetryHUD(opts) {
     const drsBox = ensureDrsHUD();
     if (!drsBox) return;
@@ -1680,6 +1714,7 @@
       const drsBox = document.getElementById('polytrack-drs-box');
       if (drsBox) drsBox.style.display = 'none';
       if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
+      if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
       powerState.planeAltitude = 0;
       powerState.planeRoll = 0;
       powerState.planePitch = 0;
@@ -1720,13 +1755,14 @@
     const isGrounded = contacts.some(c => c != null && c !== false);
     const speed = Math.round(state.speedKmh || 0);
     const controls = carInstance.getControls ? carInstance.getControls() : {};
-    const isUp = !!(controls.up || powerState.keyUp);
-    const isDown = !!(controls.down || powerState.keyDown);
-    const isLeft = !!(controls.left || powerState.keyLeft);
-    const isRight = !!(controls.right || powerState.keyRight);
+    const isUp = !!controls.up;
+    const isDown = !!controls.down;
+    const isLeft = !!controls.left;
+    const isRight = !!controls.right;
 
     // Reset flight state on car respawn
     if (controls.reset) {
+      if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
       powerState.planeAltitude = 0;
       powerState.planeRoll = 0;
       powerState.planePitch = 0;
@@ -1972,6 +2008,18 @@
       powerState.wasFlying = isFlying;
       powerState.isFlying = isFlying;
 
+      // Aviation HUD Crosshair following mouse
+      const crosshair = ensureFlightCrosshair();
+      if (crosshair) {
+        if (isFlying) {
+          crosshair.style.opacity = '1';
+          crosshair.style.left = powerState.mouseX + 'px';
+          crosshair.style.top = powerState.mouseY + 'px';
+        } else {
+          crosshair.style.opacity = '0';
+        }
+      }
+
       // 3D jet flame thrust visualization in flight
       if (jetFlames) {
         jetFlames.visible = isFlying;
@@ -1986,48 +2034,60 @@
         powerState.flightFuel = Math.max(0, powerState.flightFuel - 20 * dt);
 
         // CONTINUOUS ACCELERATION ALL THE TIME IN THE AIR ("surtout sa doit accélerer tout le temps quand on est dans les airs")
-        state.speedKmh = Math.min(380, (state.speedKmh || 180) + 40 * dt);
+        state.speedKmh = Math.min(380, (state.speedKmh || 180) + 42 * dt);
 
         // Continuous forward air propulsion accelerating along vehicle heading
         if (state.position) {
           const q = state.quaternion || { y: 0, w: 1 };
           const forwardX = -2 * (q.x * q.z + q.w * q.y);
           const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
-          powerState.airThrust = Math.min(30.0, (powerState.airThrust || 12.0) + 12.0 * dt);
+          powerState.airThrust = Math.min(32.0, (powerState.airThrust || 12.0) + 14.0 * dt);
           state.position.x += forwardX * powerState.airThrust * dt;
           state.position.z += forwardZ * powerState.airThrust * dt;
         }
 
-        // Direct 3D Flight Control (ZQSD / WASD / Flèches) :
-        // Z (ou Flèche Haut) : Monter vers le haut (altitude UP) & cabrer le nez
-        // S (ou Flèche Bas) : Descendre vers le bas (altitude DOWN) & piquer du nez
-        // Q (ou Flèche Gauche) : Virage & roulis à gauche
-        // D (ou Flèche Droite) : Virage & roulis à droite
+        // MOUSE FLIGHT CONTROLS (suit les mouvements de la souris):
+        const deadzone = 0.05;
+        let aimX = 0;
+        if (Math.abs(powerState.mouseAimX) > deadzone) {
+          aimX = (powerState.mouseAimX - Math.sign(powerState.mouseAimX) * deadzone) / (1 - deadzone);
+        }
+        let aimY = 0;
+        if (Math.abs(powerState.mouseAimY) > deadzone) {
+          aimY = (powerState.mouseAimY - Math.sign(powerState.mouseAimY) * deadzone) / (1 - deadzone);
+        }
+
+        // Vertical Control (PITCH & ALTITUDE) based on mouse Y:
+        // aimY < 0 (souris vers le haut) -> Monter vers le ciel (climb) & cabrer le nez
+        // aimY > 0 (souris vers le bas)  -> Piquer vers le sol (dive) & descendre
         let targetPitch = 0.0;
-        if (isUp) {
-          targetPitch = -0.34; // Nose up
-          powerState.planeAltitude = Math.min(36, powerState.planeAltitude + 10.5 * dt); // Z = vers le haut !
-          if (state.position) state.position.y += 9.5 * dt;
-        } else if (isDown) {
-          targetPitch = 0.34; // Nose down
-          powerState.planeAltitude = Math.max(0, powerState.planeAltitude - 12.0 * dt); // S = vers le bas !
-          if (state.position) state.position.y -= 7.5 * dt;
+        if (aimY < 0) {
+          const climbIntensity = -aimY; // 0 to 1
+          targetPitch = -0.38 * climbIntensity; // Nose up
+          powerState.planeAltitude = Math.min(45, powerState.planeAltitude + climbIntensity * 14.0 * dt);
+          if (state.position) state.position.y += climbIntensity * 12.0 * dt;
+        } else if (aimY > 0) {
+          const diveIntensity = aimY; // 0 to 1
+          targetPitch = 0.38 * diveIntensity; // Nose down
+          powerState.planeAltitude = Math.max(0, powerState.planeAltitude - diveIntensity * 16.0 * dt);
+          if (state.position) state.position.y -= diveIntensity * 11.0 * dt;
         } else {
-          // Neutral: stable glide with gentle lift countering gravity
+          // Neutral center: gentle glide lift countering gravity
           powerState.planeAltitude = Math.min(24, powerState.planeAltitude + 1.2 * dt);
           if (state.position) state.position.y += 3.5 * dt;
         }
-        powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 7.5);
+        powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 8.0);
 
-        // Aerodynamic banking (roll) when steering Left (Q) or Right (D)
-        const targetRoll = isLeft ? -0.42 : (isRight ? 0.42 : 0);
-        powerState.planeRoll += (targetRoll - powerState.planeRoll) * Math.min(1, dt * 8.0);
+        // Horizontal Control (ROLL & YAW) based on mouse X:
+        // aimX < 0 (souris vers la gauche) -> Incline les ailes à gauche et vire à gauche
+        // aimX > 0 (souris vers la droite) -> Incline les ailes à droite et vire à droite
+        const targetRoll = aimX * 0.52; // Bank angle follows mouse X
+        powerState.planeRoll += (targetRoll - powerState.planeRoll) * Math.min(1, dt * 8.5);
 
-        // Aerodynamic yaw steering rotation in the air (Q vs D)
-        const steerDir = (isLeft ? 1 : 0) - (isRight ? 1 : 0);
-        if (steerDir !== 0 && state.quaternion) {
+        // Yaw turn rate follows mouse X
+        if (Math.abs(aimX) > 0.01 && state.quaternion) {
           try {
-            const yawAngle = steerDir * 1.95 * dt;
+            const yawAngle = -aimX * 2.3 * dt;
             const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawAngle);
             const curQ = new THREE.Quaternion(state.quaternion.x, state.quaternion.y, state.quaternion.z, state.quaternion.w);
             curQ.multiply(yawQuat);
@@ -2091,6 +2151,10 @@
     if (powerState.fxOverlayEl && powerState.fxOverlayEl.parentNode) {
       powerState.fxOverlayEl.parentNode.removeChild(powerState.fxOverlayEl);
       powerState.fxOverlayEl = null;
+    }
+    if (powerState.crosshairEl && powerState.crosshairEl.parentNode) {
+      powerState.crosshairEl.parentNode.removeChild(powerState.crosshairEl);
+      powerState.crosshairEl = null;
     }
     powerState.isFlying = false;
     powerState.wasFlying = false;
