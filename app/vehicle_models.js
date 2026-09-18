@@ -115,6 +115,97 @@
         osc.start(t);
         osc.stop(t + 0.06);
       } catch (e) {}
+    },
+    playTurboSpool: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, t);
+        osc.frequency.exponentialRampToValueAtTime(2600, t + 0.22);
+        gain.gain.setValueAtTime(0.04, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.22);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.22);
+      } catch (e) {}
+    },
+    playTurboBlowoff: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        // High-pressure turbo blow-off valve release
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(1800, t);
+        osc.frequency.exponentialRampToValueAtTime(300, t + 0.18);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.18);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.18);
+      } catch (e) {}
+    },
+    playAfterburner: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(95, t);
+        osc.frequency.exponentialRampToValueAtTime(280, t + 0.15);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.20);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.20);
+      } catch (e) {}
+    },
+    playKineticRam: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(45, t + 0.16);
+        gain.gain.setValueAtTime(0.09, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.16);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.16);
+      } catch (e) {}
+    },
+    playGroundSlam: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(120, t);
+        osc.frequency.exponentialRampToValueAtTime(32, t + 0.28);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.28);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.28);
+      } catch (e) {}
     }
   };
 
@@ -345,6 +436,10 @@
     b.addBox(-0.72, -0.29, 1.62, 0.72, -0.21, 1.86, 2);
     b.addBox(-0.74, -0.26, 1.70, -0.69, -0.06, 1.88, 2); // left winglet
     b.addBox(0.69, -0.26, 1.70, 0.74, -0.06, 1.88, 2);  // right winglet
+
+    // Stainless splitter support tie-rods
+    b.addBox(-0.25, -0.21, 1.82, -0.23, -0.07, 1.76, 2); // left tie-rod
+    b.addBox(0.23, -0.21, 1.82, 0.25, -0.07, 1.76, 2);  // right tie-rod
 
     // Front bumper dive planes (canards)
     b.addBox(-0.70, -0.16, 1.68, -0.55, -0.12, 1.80, 2); // lower canard L
@@ -585,6 +680,27 @@
     b.addBrakeRotor(-0.58, -0.42, -1.28, 0.19, false);// RL
     b.addBrakeRotor(0.58, -0.42, -1.28, 0.19, true);  // RR
 
+    // Heavy Baja Long-Travel Coilover Springs (damper shaft: Metal 2, heavy orange spring: BrakeLight 3)
+    b.addCylinderZ(-0.52, -0.32, 1.28, 0.22, 0.04, 0.04, 6, 2);
+    b.addCylinderZ(-0.52, -0.30, 1.28, 0.16, 0.06, 0.06, 6, 3);
+    b.addCylinderZ(0.52, -0.32, 1.28, 0.22, 0.04, 0.04, 6, 2);
+    b.addCylinderZ(0.52, -0.30, 1.28, 0.16, 0.06, 0.06, 6, 3);
+    b.addCylinderZ(-0.52, -0.32, -1.28, 0.22, 0.04, 0.04, 6, 2);
+    b.addCylinderZ(-0.52, -0.30, -1.28, 0.16, 0.06, 0.06, 6, 3);
+    b.addCylinderZ(0.52, -0.32, -1.28, 0.22, 0.04, 0.04, 6, 2);
+    b.addCylinderZ(0.52, -0.30, -1.28, 0.16, 0.06, 0.06, 6, 3);
+
+    // Off-Road High-Lift Recovery Jack on left bed rail
+    b.addBox(-0.58, 0.26, -1.65, -0.54, 0.32, -0.75, 3); // red I-beam spine
+    b.addBox(-0.60, 0.24, -1.60, -0.52, 0.34, -1.50, 2); // runner mechanism
+    b.addBox(-0.61, 0.28, -1.55, -0.51, 0.40, -1.53, 2); // operating handle
+
+    // Dual Expedition Jerry Cans in right bed corner
+    b.addBox(0.32, -0.12, -1.65, 0.46, 0.20, -1.45, 3);  // red jerry can 1
+    b.addBox(0.35, 0.20, -1.62, 0.43, 0.24, -1.48, 2);  // handle 1
+    b.addBox(0.32, -0.12, -1.42, 0.46, 0.20, -1.22, 3);  // red jerry can 2
+    b.addBox(0.35, 0.20, -1.39, 0.43, 0.24, -1.25, 2);  // handle 2
+
     return b.build();
   }
 
@@ -687,17 +803,17 @@
       id: 'f1',
       name: 'Formule 1 (F1)',
       shortName: 'F1',
-      badge: 'AÉRO',
+      badge: 'DRS+KERS',
       tag: 'MONOPLACE F1',
       image: 'images/vehicle_f1.svg',
-      subtitle: 'Vitesse Pure & Appui Maximal',
+      subtitle: 'DRS Actif & Batterie KERS 340 km/h',
       icon: '🏎️',
       color: '#ef4444',
-      powerName: 'Appui Aérodynamique',
-      powerKey: 'PASSIF PERMANENT',
-      powerDesc: 'Vitesse de pointe chirurgicale (320 km/h) et appui maximal au sol en virage rapide.',
-      stats: { speed: 98, accel: 92, grip: 90, aero: 85 },
-      statLabels: { speed: '320 km/h', accel: '1.8s', grip: 'Aéro Max', aero: 'Effet de Sol' }
+      powerName: 'DRS Aérodynamique & KERS',
+      powerKey: 'MAINTENIR [SHIFT]',
+      powerDesc: 'Ouvre l\'aileron DRS pour annuler la traînée et libère le KERS jusqu\'à 340 km/h. Se referme au relâchement.',
+      stats: { speed: 99, accel: 95, grip: 92, aero: 98 },
+      statLabels: { speed: '340 km/h', accel: '1.7s', grip: 'Aéro Max', aero: 'DRS Actif' }
     },
     voiture: {
       id: 'voiture',
@@ -706,46 +822,46 @@
       badge: 'NITRO',
       tag: 'HYPERCAR CYBER',
       image: 'images/vehicle_gt.svg',
-      subtitle: 'Turbo Nitro Boost & Dérapage',
+      subtitle: 'Turbo Nitro Boost & Flammes 3D',
       icon: '🚗',
       color: '#06b6d4',
-      powerName: '⚡ Turbo Nitro Boost',
-      powerKey: '[ESPACE] OU [SHIFT]',
-      powerDesc: 'Poussée supersonique (+40 km/h) avec traînées de vitesse. Se recharge en roulant.',
-      stats: { speed: 90, accel: 98, grip: 85, aero: 65 },
-      statLabels: { speed: '300 km/h', accel: '1.5s (Boost)', grip: 'Précision', aero: 'Aileron GT' }
+      powerName: '⚡ Turbo Nitro Overboost',
+      powerKey: '[SHIFT] OU [ESPACE]',
+      powerDesc: 'Propulsion supersonique (+45 km/h) avec flammes 3D cyan. Recharge 3x plus vite en dérapage contrôlé.',
+      stats: { speed: 92, accel: 98, grip: 88, aero: 75 },
+      statLabels: { speed: '330 km/h', accel: '1.4s (Nitro)', grip: 'Drift Boost', aero: 'Aileron GT' }
     },
     camionnette: {
       id: 'camionnette',
       name: 'Le Mastodonte',
       shortName: 'PICK-UP',
-      badge: 'SLAM',
+      badge: 'BÉLIER',
       tag: 'OFFROAD BAJA',
       image: 'images/vehicle_van.svg',
-      subtitle: 'Pick-up / Blindage Lourd',
+      subtitle: 'Bélier Cinétique & Ground Slam',
       icon: '🚙',
       color: '#f59e0b',
-      powerName: '🛡️ Blindage & Ground Slam',
-      powerKey: 'AU SOL & SAUTS',
-      powerDesc: 'Châssis lourd insensible aux tête-à-queue et impulsion Ground Slam (+15 km/h) à l\'atterrissage.',
-      stats: { speed: 76, accel: 82, grip: 100, aero: 30 },
-      statLabels: { speed: '265 km/h', accel: '2.2s', grip: 'Super Grip', aero: 'Blindage' }
+      powerName: '🛡️ Bélier Cinétique & Slam',
+      powerKey: 'MAINTENIR [SHIFT] / SAUTS',
+      powerDesc: 'Poussée bélier bulldozer avec blindage anti-spin sur [Shift] et Super Ground Slam (+28 km/h) à l\'atterrissage.',
+      stats: { speed: 82, accel: 86, grip: 100, aero: 40 },
+      statLabels: { speed: '285 km/h', accel: '2.0s', grip: 'Super Grip', aero: 'Blindage' }
     },
     avion: {
       id: 'avion',
       name: 'Aéroplane (Jet Glider)',
       shortName: 'AVION',
-      badge: 'VOL',
+      badge: 'POSTCOMBUSTION',
       tag: 'CHASSEUR SUPERSONIQUE',
       image: 'images/vehicle_plane.svg',
-      subtitle: 'Tricycle 3 Roues & Vol Plané',
+      subtitle: 'Tricycle 3 Roues, Vol & Postcombustion',
       icon: '✈️',
       color: '#a855f7',
-      powerName: '✈️ Vol Plané Aérodynamique',
-      powerKey: 'EN L\'AIR (SAUTS)',
-      powerDesc: 'Plane et flotte dans les airs pendant 3.5s sur les grands sauts. 3 roues (1 avant centre, 2 arrière).',
-      stats: { speed: 88, accel: 78, grip: 72, aero: 100 },
-      statLabels: { speed: '295 km/h', accel: '2.3s', grip: 'Tricycle', aero: 'Vol Plané 3.5s' }
+      powerName: '🚀 Postcombustion & Vol Plané',
+      powerKey: 'MAINTENIR [SHIFT] / EN L\'AIR',
+      powerDesc: 'Réacteurs de postcombustion (+35 km/h avec flammes violettes 3D) et portance de vol plané en l\'air. Strictement 3 roues.',
+      stats: { speed: 94, accel: 88, grip: 74, aero: 100 },
+      statLabels: { speed: '325 km/h', accel: '1.9s', grip: 'Tricycle', aero: 'Vol Plané' }
     }
   };
 
@@ -899,6 +1015,115 @@
       return drsGroup;
     } catch (e) {
       console.warn('[PolyTrack] Error in ensureF1DrsFlap:', e);
+      return null;
+    }
+  }
+
+  function getFlameMaterials(chassisMesh, hexColor) {
+    let mats = [];
+    try {
+      if (chassisMesh && Array.isArray(chassisMesh.material)) {
+        mats = chassisMesh.material.map(m => m ? m.clone() : m);
+      } else if (chassisMesh && chassisMesh.material) {
+        mats = [chassisMesh.material.clone(), chassisMesh.material.clone(), chassisMesh.material.clone(), chassisMesh.material.clone(), chassisMesh.material.clone()];
+      }
+      for (let i = 0; i < mats.length; i++) {
+        if (mats[i] && mats[i].color) {
+          try { mats[i].color.set(hexColor); } catch (e) {}
+        }
+      }
+    } catch (e) {}
+    return mats;
+  }
+
+  // --- 4.6 3D REACTIVE CYAN NITRO EXHAUST FLAMES (VOITURE GT) ---
+  function buildGtNitroFlamesGeometry(THREE, B) {
+    const b = createSolidBuilder(THREE, B);
+    // Twin faceted nitro flame plumes shooting rearward from diffuser exhaust tunnel
+    // Left flame plume (Z extends from 0.0 down to -0.42, centered around X = -0.11, Y = 0)
+    b.addSlopedBox(-0.16, -0.06, -0.05, 0.05, 0.05, -0.42, 0.00, 3);
+    b.addSlopedBox(-0.14, -0.08, -0.03, 0.03, 0.03, -0.25, 0.00, 2);
+    // Right flame plume
+    b.addSlopedBox(0.06, 0.16, -0.05, 0.05, 0.05, -0.42, 0.00, 3);
+    b.addSlopedBox(0.08, 0.14, -0.03, 0.03, 0.03, -0.25, 0.00, 2);
+    return b.build();
+  }
+
+  function ensureGtNitroFlames(carInstance, l, be, THREE, B) {
+    if (!carInstance || !be) return null;
+    try {
+      const chassisMesh = (0, l.gn)(carInstance, be, "f");
+      if (!chassisMesh) return null;
+
+      if (carInstance._gtNitroFlames && carInstance._gtNitroFlames.parent === chassisMesh) {
+        return carInstance._gtNitroFlames;
+      }
+
+      if (carInstance._gtNitroFlames && carInstance._gtNitroFlames.parent) {
+        try { carInstance._gtNitroFlames.parent.remove(carInstance._gtNitroFlames); } catch (e) {}
+      }
+
+      const geom = buildGtNitroFlamesGeometry(THREE, B);
+      if (!geom) return null;
+
+      const flameMats = getFlameMaterials(chassisMesh, '#00e5ff');
+      const MeshClass = (THREE && (THREE.Mesh || THREE.vY)) || (chassisMesh && chassisMesh.constructor);
+      const flameMesh = new MeshClass(geom, flameMats);
+      flameMesh.name = 'GT_Nitro_Flames';
+      flameMesh.position.set(0, -0.18, -1.95);
+      flameMesh.visible = false;
+
+      chassisMesh.add(flameMesh);
+      carInstance._gtNitroFlames = flameMesh;
+      return flameMesh;
+    } catch (e) {
+      console.warn('[PolyTrack] Error in ensureGtNitroFlames:', e);
+      return null;
+    }
+  }
+
+  // --- 4.7 3D REACTIVE SUPERSONIC PURPLE AFTERBURNER FLAMES (AVION) ---
+  function buildPlaneJetFlamesGeometry(THREE, B) {
+    const b = createSolidBuilder(THREE, B);
+    // Twin supersonic afterburner flame spikes shooting rearward from nozzles
+    // Left nozzle: X = -0.25, Y = 0, Z extends from 0.0 down to -0.65
+    b.addSlopedBox(-0.33, -0.17, -0.07, 0.07, 0.07, -0.65, 0.00, 3);
+    b.addSlopedBox(-0.29, -0.21, -0.04, 0.04, 0.04, -0.40, 0.00, 2);
+    // Right nozzle: X = +0.25, Y = 0, Z extends from 0.0 down to -0.65
+    b.addSlopedBox(0.17, 0.33, -0.07, 0.07, 0.07, -0.65, 0.00, 3);
+    b.addSlopedBox(0.21, 0.29, -0.04, 0.04, 0.04, -0.40, 0.00, 2);
+    return b.build();
+  }
+
+  function ensurePlaneJetFlames(carInstance, l, be, THREE, B) {
+    if (!carInstance || !be) return null;
+    try {
+      const chassisMesh = (0, l.gn)(carInstance, be, "f");
+      if (!chassisMesh) return null;
+
+      if (carInstance._planeJetFlames && carInstance._planeJetFlames.parent === chassisMesh) {
+        return carInstance._planeJetFlames;
+      }
+
+      if (carInstance._planeJetFlames && carInstance._planeJetFlames.parent) {
+        try { carInstance._planeJetFlames.parent.remove(carInstance._planeJetFlames); } catch (e) {}
+      }
+
+      const geom = buildPlaneJetFlamesGeometry(THREE, B);
+      if (!geom) return null;
+
+      const flameMats = getFlameMaterials(chassisMesh, '#d946ef');
+      const MeshClass = (THREE && (THREE.Mesh || THREE.vY)) || (chassisMesh && chassisMesh.constructor);
+      const flameMesh = new MeshClass(geom, flameMats);
+      flameMesh.name = 'Plane_Jet_Flames';
+      flameMesh.position.set(0, -0.08, -2.02);
+      flameMesh.visible = false;
+
+      chassisMesh.add(flameMesh);
+      carInstance._planeJetFlames = flameMesh;
+      return flameMesh;
+    } catch (e) {
+      console.warn('[PolyTrack] Error in ensurePlaneJetFlames:', e);
       return null;
     }
   }
@@ -1072,6 +1297,22 @@
         } catch (e) {}
       }
 
+      // Detach existing dynamic child groups before replacing chassis mesh
+      try {
+        if (carInstance._drsFlapGroup && carInstance._drsFlapGroup.parent) {
+          carInstance._drsFlapGroup.parent.remove(carInstance._drsFlapGroup);
+          carInstance._drsFlapGroup = null;
+        }
+        if (carInstance._gtNitroFlames && carInstance._gtNitroFlames.parent) {
+          carInstance._gtNitroFlames.parent.remove(carInstance._gtNitroFlames);
+          carInstance._gtNitroFlames = null;
+        }
+        if (carInstance._planeJetFlames && carInstance._planeJetFlames.parent) {
+          carInstance._planeJetFlames.parent.remove(carInstance._planeJetFlames);
+          carInstance._planeJetFlames = null;
+        }
+      } catch (e) {}
+
       // 1. Capture the existing matrix so the new mesh NEVER drops to (0,0,0) under the floor!
       const oldMatrix = (oldMesh && oldMesh.matrix) ? oldMesh.matrix.clone() : null;
 
@@ -1159,13 +1400,27 @@
         }
       } catch (e) {}
 
-      // 8. F1 DRS Flap visibility & initialization
+      // 8. Dynamic attachments visibility & initialization (DRS Flap, GT Nitro Flames, Plane Jet Flames)
       try {
         if (vType === 'f1') {
           ensureF1DrsFlap(carInstance, l, be, THREE, B);
           if (carInstance._drsFlapGroup) carInstance._drsFlapGroup.visible = true;
-        } else {
-          if (carInstance._drsFlapGroup) carInstance._drsFlapGroup.visible = false;
+        } else if (carInstance._drsFlapGroup) {
+          carInstance._drsFlapGroup.visible = false;
+        }
+
+        if (vType === 'voiture') {
+          ensureGtNitroFlames(carInstance, l, be, THREE, B);
+          if (carInstance._gtNitroFlames) carInstance._gtNitroFlames.visible = false;
+        } else if (carInstance._gtNitroFlames) {
+          carInstance._gtNitroFlames.visible = false;
+        }
+
+        if (vType === 'avion') {
+          ensurePlaneJetFlames(carInstance, l, be, THREE, B);
+          if (carInstance._planeJetFlames) carInstance._planeJetFlames.visible = false;
+        } else if (carInstance._planeJetFlames) {
+          carInstance._planeJetFlames.visible = false;
         }
       } catch (e) {}
 
@@ -1177,27 +1432,39 @@
 
   // --- 5. POWER LOGIC & IN-GAME ESPORTS TELEMETRY HUD ---
   const powerState = {
-    // Nitro (Voiture)
-    nitroFuel: 100,
-    maxNitro: 100,
-    isNitroBoosting: false,
-    nitroKeyHeld: false,
+    // Keys
+    shiftKeyHeld: false,
+    spaceKeyHeld: false,
+    drsKeyHeld: false,
 
     // DRS (Formule 1)
-    drsKeyHeld: false,
     drsFlapAngle: 0,
     isDrsActive: false,
     wasDrsActive: false,
 
-    // Glider (Avion)
+    // Nitro (Voiture GT)
+    nitroFuel: 100,
+    maxNitro: 100,
+    isNitroBoosting: false,
+    wasNitroBoosting: false,
+
+    // Heavy Tank & Bélier Cinétique (Camionnette)
+    isRamming: false,
+    wasRamming: false,
+    ramEnergy: 100,
+    maxRamEnergy: 100,
+    slamCharged: false,
+    slamTriggered: false,
+
+    // Glider & Postcombustion (Avion)
     isGliding: false,
     glideRemaining: 3.5,
     maxGlide: 3.5,
     airborneFrames: 0,
-
-    // Heavy Tank (Camionnette)
-    slamCharged: false,
-    slamTriggered: false,
+    isAfterburning: false,
+    wasAfterburning: false,
+    afterburnerFuel: 100,
+    maxAfterburner: 100,
 
     // UI Elements
     hudEl: null,
@@ -1205,23 +1472,26 @@
   };
 
   window.addEventListener('keydown', e => {
-    if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-      powerState.nitroKeyHeld = true;
+    if (e.code === 'Space') {
+      powerState.spaceKeyHeld = true;
     }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      powerState.shiftKeyHeld = true;
       powerState.drsKeyHeld = true;
     }
   });
   window.addEventListener('keyup', e => {
-    if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-      powerState.nitroKeyHeld = false;
+    if (e.code === 'Space') {
+      powerState.spaceKeyHeld = false;
     }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      powerState.shiftKeyHeld = false;
       powerState.drsKeyHeld = false;
     }
   });
   window.addEventListener('blur', () => {
-    powerState.nitroKeyHeld = false;
+    powerState.spaceKeyHeld = false;
+    powerState.shiftKeyHeld = false;
     powerState.drsKeyHeld = false;
   });
 
@@ -1231,24 +1501,11 @@
     // In-game Telemetry HUD container
     const hud = document.createElement('div');
     hud.id = 'polytrack-power-hud';
-    hud.style.cssText = `
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
-      pointer-events: none;
-      font-family: forced_square, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    `;
+    hud.className = 'polytrack-telemetry-hud';
     document.body.appendChild(hud);
     powerState.hudEl = hud;
 
-    // Fullscreen FX overlay for Nitro speed lines and impact flashes
+    // Fullscreen FX overlay for speed lines and impact flashes
     if (!powerState.fxOverlayEl || !document.body.contains(powerState.fxOverlayEl)) {
       const fx = document.createElement('div');
       fx.id = 'polytrack-fx-overlay';
@@ -1288,166 +1545,26 @@
     // Check if wheels touch ground
     const contacts = state.wheelContact || [];
     const isGrounded = contacts.some(c => c != null && c !== false);
+    const speed = Math.round(state.speedKmh || 0);
+    const controls = carInstance.getControls ? carInstance.getControls() : {};
 
-    // Hide F1 DRS flap if driving another vehicle
+    // Hide unneeded dynamic meshes for other vehicle types
     if (vType !== 'f1' && carInstance._drsFlapGroup) {
       carInstance._drsFlapGroup.visible = false;
     }
-
-    // --- 1. AVION: GLIDER ABILITY ---
-    if (vType === 'avion') {
-      if (!isGrounded) {
-        powerState.airborneFrames++;
-        if (powerState.airborneFrames > 8 && powerState.glideRemaining > 0) {
-          powerState.isGliding = true;
-          powerState.glideRemaining = Math.max(0, powerState.glideRemaining - dt);
-
-          if (state.position && state.position.y !== undefined) {
-            const liftRate = 14.5 * (powerState.glideRemaining / powerState.maxGlide);
-            state.position.y += liftRate * dt;
-
-            const forwardX = -Math.sin(state.quaternion.y * 2);
-            const forwardZ = -Math.cos(state.quaternion.y * 2);
-            state.position.x += forwardX * 3.8 * dt;
-            state.position.z += forwardZ * 3.8 * dt;
-          }
-        }
-      } else {
-        powerState.airborneFrames = 0;
-        powerState.isGliding = false;
-        powerState.glideRemaining = powerState.maxGlide;
-      }
-
-      const pct = Math.round((powerState.glideRemaining / powerState.maxGlide) * 100);
-      const isGliding = powerState.isGliding;
-
-      if (powerState.fxOverlayEl) {
-        if (isGliding) {
-          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 70%, rgba(16, 185, 129, 0.15) 100%)';
-          powerState.fxOverlayEl.style.opacity = '1';
-        } else {
-          powerState.fxOverlayEl.style.opacity = '0';
-        }
-      }
-
-      powerState.hudEl.innerHTML = `
-        <div style="background: rgba(8, 18, 14, 0.90); backdrop-filter: blur(12px); border: 1.5px solid ${isGliding ? '#34d399' : '#10b981'}; border-radius: 10px; padding: 7px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 24px ${isGliding ? 'rgba(52,211,153,0.5)' : 'rgba(16,185,129,0.3)'}; min-width: 280px;">
-          <div style="font-size: 24px; filter: drop-shadow(0 0 8px #34d399);">✈️</div>
-          <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
-            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-              <span style="font-size: 13px; font-weight: 800; letter-spacing: 0.5px; color: ${isGliding ? '#6ee7b7' : '#a7f3d0'};">
-                ${isGliding ? '🚀 VOL PLANÉ ACTIF (PORTANCE MAX)' : (isGrounded ? '✈️ TRAIN TRICYCLE AU SOL • PRÊT' : 'RECHARGE PORTANCE AU SOL')}
-              </span>
-              <span style="font-size: 13px; font-weight: 900; color: #34d399;">${powerState.glideRemaining.toFixed(1)}s</span>
-            </div>
-            <div style="width: 100%; height: 7px; background: rgba(255,255,255,0.12); border-radius: 999px; overflow: hidden; position: relative;">
-              <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #059669, #10b981, #34d399); transition: width 0.08s linear;"></div>
-            </div>
-          </div>
-        </div>
-      `;
+    if (vType !== 'voiture' && carInstance._gtNitroFlames) {
+      carInstance._gtNitroFlames.visible = false;
+    }
+    if (vType !== 'avion' && carInstance._planeJetFlames) {
+      carInstance._planeJetFlames.visible = false;
     }
 
-    // --- 2. VOITURE: TURBO NITRO BOOST ---
-    else if (vType === 'voiture') {
-      const controls = carInstance.getControls ? carInstance.getControls() : {};
-      const wantsNitro = powerState.nitroKeyHeld || (controls.up && state.speedKmh > 190);
-
-      if (wantsNitro && powerState.nitroFuel > 4) {
-        powerState.isNitroBoosting = true;
-        powerState.nitroFuel = Math.max(0, powerState.nitroFuel - 36 * dt);
-
-        const speedBoost = 42; // +42 km/h boost
-        state.speedKmh = Math.min(325, state.speedKmh + speedBoost * dt);
-
-        if (state.position) {
-          const q = state.quaternion || { y: 0, w: 1 };
-          const forwardX = -2 * (q.x * q.z + q.w * q.y);
-          const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
-          state.position.x += forwardX * 9.2 * dt;
-          state.position.z += forwardZ * 9.2 * dt;
-        }
-
-        if (powerState.fxOverlayEl) {
-          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(56, 189, 248, 0.25) 90%, rgba(37, 99, 235, 0.45) 100%)';
-          powerState.fxOverlayEl.style.opacity = '1';
-        }
-      } else {
-        powerState.isNitroBoosting = false;
-        powerState.nitroFuel = Math.min(powerState.maxNitro, powerState.nitroFuel + 20 * dt);
-        if (powerState.fxOverlayEl) {
-          powerState.fxOverlayEl.style.opacity = '0';
-        }
-      }
-
-      const pct = Math.round((powerState.nitroFuel / powerState.maxNitro) * 100);
-      const isBoosting = powerState.isNitroBoosting;
-
-      powerState.hudEl.innerHTML = `
-        <div style="background: rgba(10, 18, 32, 0.90); backdrop-filter: blur(12px); border: 1.5px solid ${isBoosting ? '#38bdf8' : '#2563eb'}; border-radius: 10px; padding: 7px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 24px ${isBoosting ? 'rgba(56,189,248,0.6)' : 'rgba(37,99,235,0.3)'}; min-width: 280px;">
-          <div style="font-size: 24px; filter: drop-shadow(0 0 8px #38bdf8);">⚡</div>
-          <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
-            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-              <span style="font-size: 13px; font-weight: 800; letter-spacing: 0.5px; color: ${isBoosting ? '#7dd3fc' : '#93c5fd'};">
-                ${isBoosting ? '🔥 TURBO NITRO BOOST ACTIF (+40 KM/H)' : 'NITRO BOOST [ESPACE / SHIFT]'}
-              </span>
-              <span style="font-size: 13px; font-weight: 900; color: #38bdf8;">${pct}%</span>
-            </div>
-            <div style="width: 100%; height: 7px; background: rgba(255,255,255,0.12); border-radius: 999px; overflow: hidden; position: relative;">
-              <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #1d4ed8, #2563eb, #38bdf8, #67e8f9); transition: width 0.08s linear;"></div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    // --- 3. CAMIONNETTE: BLINDAGE & SUPER GRIP ---
-    else if (vType === 'camionnette') {
-      if (!isGrounded) {
-        powerState.airborneFrames++;
-        if (powerState.airborneFrames > 12) powerState.slamCharged = true;
-      } else {
-        if (powerState.slamCharged) {
-          powerState.slamCharged = false;
-          state.speedKmh = Math.min(285, state.speedKmh + 18);
-          powerState.slamTriggered = true;
-          if (powerState.fxOverlayEl) {
-            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 60%, rgba(245, 158, 11, 0.35) 100%)';
-            powerState.fxOverlayEl.style.opacity = '1';
-            setTimeout(() => { if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0'; }, 300);
-          }
-          setTimeout(() => { powerState.slamTriggered = false; }, 1400);
-        }
-        powerState.airborneFrames = 0;
-      }
-
-      if (state.angularVelocity) {
-        state.angularVelocity.x *= 0.82;
-        state.angularVelocity.z *= 0.82;
-      }
-
-      powerState.hudEl.innerHTML = `
-        <div style="background: rgba(24, 16, 6, 0.90); backdrop-filter: blur(12px); border: 1.5px solid ${powerState.slamTriggered ? '#f59e0b' : '#d97706'}; border-radius: 10px; padding: 7px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 24px rgba(245,158,11,0.35); min-width: 280px;">
-          <div style="font-size: 24px; filter: drop-shadow(0 0 8px #f59e0b);">🛡️</div>
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <div style="font-size: 13px; font-weight: 800; letter-spacing: 0.5px; color: ${powerState.slamTriggered ? '#fef08a' : '#fde68a'};">
-              ${powerState.slamTriggered ? '💥 GROUND SLAM ABSORBÉ ! (+18 KM/H)' : (powerState.slamCharged ? '⚡ SLAM CHARGÉ... PRÊT À L\'IMPACT !' : 'BLINDAGE LOURD : SUPER GRIP')}
-            </div>
-            <div style="font-size: 11px; color: #f59e0b; opacity: 0.95;">
-              ${powerState.slamCharged ? 'Impact imminent avec propulsion au sol' : 'Adhérence maximale & stabilité anti tête-à-queue'}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    // --- 4. FORMULE 1: DRS (Drag Reduction System) ---
-    else {
+    // --- 1. FORMULE 1: DRS (Drag Reduction System) + KERS HYBRID SURGE ---
+    if (vType === 'f1') {
       const flap = ensureF1DrsFlap(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
       if (flap) flap.visible = true;
 
-      const controls = carInstance.getControls ? carInstance.getControls() : {};
-      const wantsDrs = powerState.drsKeyHeld;
+      const wantsDrs = powerState.drsKeyHeld || powerState.shiftKeyHeld;
       const isMovingForward = state.speedKmh > 15;
       const isDrsActive = wantsDrs && isMovingForward;
 
@@ -1468,24 +1585,24 @@
       }
 
       if (isDrsActive) {
-        // Drastic aerodynamic drag reduction & acceleration surge up to 335 km/h
-        const accelBoost = controls.up ? 34 : 14;
-        state.speedKmh = Math.min(335, state.speedKmh + accelBoost * dt);
+        // Drastic aerodynamic drag reduction & KERS battery surge up to 340 km/h
+        const accelBoost = controls.up ? 38 : 16;
+        state.speedKmh = Math.min(340, state.speedKmh + accelBoost * dt);
 
         // Forward aerodynamic thrust vector
         if (state.position) {
           const q = state.quaternion || { y: 0, w: 1 };
           const forwardX = -2 * (q.x * q.z + q.w * q.y);
           const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
-          const aeroFactor = Math.min(1.25, Math.max(0.3, state.speedKmh / 140));
-          state.position.x += forwardX * (8.5 * aeroFactor) * dt;
-          state.position.z += forwardZ * (8.5 * aeroFactor) * dt;
+          const aeroFactor = Math.min(1.3, Math.max(0.35, state.speedKmh / 130));
+          state.position.x += forwardX * (9.5 * aeroFactor) * dt;
+          state.position.z += forwardZ * (9.5 * aeroFactor) * dt;
         }
 
         // Screen aerodynamic speed lines FX
         if (powerState.fxOverlayEl) {
           if (state.speedKmh > 180) {
-            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(34, 197, 94, 0.18) 90%, rgba(16, 185, 129, 0.32) 100%)';
+            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(34, 197, 94, 0.20) 90%, rgba(16, 185, 129, 0.35) 100%)';
             powerState.fxOverlayEl.style.opacity = '1';
           } else {
             powerState.fxOverlayEl.style.opacity = '0';
@@ -1497,23 +1614,313 @@
         }
       }
 
-      // Real-time F1 Telemetry HUD
-      const speed = Math.round(state.speedKmh || 0);
+      const percent = Math.min(100, Math.round((speed / 340) * 100));
+      const accentColor = isDrsActive ? '#22c55e' : '#ef4444';
+      const glowColor = isDrsActive ? 'rgba(34,197,94,0.55)' : 'rgba(239,68,68,0.35)';
+
+      powerState.hudEl.style.setProperty('--hud-accent', accentColor);
+      powerState.hudEl.style.setProperty('--hud-glow', accentColor);
+      powerState.hudEl.style.border = `1.5px solid ${accentColor}`;
+      powerState.hudEl.style.boxShadow = `0 10px 30px rgba(0,0,0,0.65), 0 0 20px ${glowColor}`;
+
       powerState.hudEl.innerHTML = `
-        <div style="background: rgba(14, 14, 20, 0.92); backdrop-filter: blur(12px); border: 1.5px solid ${isDrsActive ? '#22c55e' : '#e11d48'}; border-radius: 10px; padding: 7px 18px; display: flex; align-items: center; gap: 14px; box-shadow: 0 8px 24px ${isDrsActive ? 'rgba(34,197,94,0.55)' : 'rgba(225,29,72,0.3)'}; min-width: 320px; transition: border-color 0.15s ease, box-shadow 0.15s ease;">
-          <div style="font-size: 26px; filter: drop-shadow(0 0 8px ${isDrsActive ? '#22c55e' : '#fb7185'});">🏎️</div>
-          <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1;">
-            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-              <span style="font-size: 13px; font-weight: 800; letter-spacing: 0.6px; color: ${isDrsActive ? '#86efac' : '#fecdd3'};">
-                ${isDrsActive ? '🟢 DRS ACTIF • TRAÎNÉE MIN (+335 KM/H)' : '🏎️ DRS PRÊT • MAINTENIR [SHIFT]'}
-              </span>
-              <span style="font-size: 13px; font-weight: 900; color: ${isDrsActive ? '#22c55e' : '#f43f5e'};">
-                ${speed} <span style="font-size: 10px; font-weight: 700; opacity: 0.85;">KM/H</span>
+        <div class="hud-keycap ${wantsDrs ? 'pressed' : ''}">
+          <span class="key-sub">HOLD</span>
+          <span class="key-name">SHIFT</span>
+        </div>
+        <div class="hud-telemetry-body">
+          <div class="hud-top-row">
+            <div class="hud-status-badge">
+              <span class="hud-icon">🏎️</span>
+              <span class="hud-text" style="color: ${isDrsActive ? '#86efac' : '#fca5a5'};">
+                ${isDrsActive ? '🟢 DRS OUVERT • KERS 340 KM/H' : '🏎️ DRS PRÊT • MAINTENIR [SHIFT]'}
               </span>
             </div>
-            <div style="width: 100%; height: 7px; background: rgba(255,255,255,0.12); border-radius: 999px; overflow: hidden; position: relative;">
-              <div style="width: ${Math.min(100, Math.round((speed / 335) * 100))}%; height: 100%; background: ${isDrsActive ? 'linear-gradient(90deg, #15803d, #22c55e, #4ade80)' : 'linear-gradient(90deg, #be123c, #e11d48, #fb7185)'}; transition: width 0.08s linear;"></div>
+            <div class="hud-speed-display" style="color: ${isDrsActive ? '#4ade80' : '#f87171'};">
+              <span>${speed}</span><span class="unit">KM/H</span>
             </div>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" style="width: ${percent}%; background: ${isDrsActive ? 'linear-gradient(90deg, #15803d, #22c55e, #4ade80)' : 'linear-gradient(90deg, #991b1b, #ef4444, #fca5a5)'};"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- 2. VOITURE: TURBO NITRO BOOST & 3D REACTIVE FLAMES ---
+    else if (vType === 'voiture') {
+      const flames = ensureGtNitroFlames(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
+      const wantsNitro = powerState.shiftKeyHeld || powerState.spaceKeyHeld || (controls.up && state.speedKmh > 190 && powerState.nitroFuel > 15);
+      const isNitroActive = wantsNitro && powerState.nitroFuel > 3;
+
+      if (isNitroActive && !powerState.wasNitroBoosting) {
+        AudioFX.playTurboSpool();
+      } else if (!isNitroActive && powerState.wasNitroBoosting) {
+        AudioFX.playTurboBlowoff();
+      }
+      powerState.wasNitroBoosting = isNitroActive;
+      powerState.isNitroBoosting = isNitroActive;
+
+      // 3D reactive flame jitter
+      if (flames) {
+        flames.visible = isNitroActive;
+        if (isNitroActive) {
+          const jitter = 0.88 + Math.random() * 0.28;
+          flames.scale.set(jitter, jitter, 1.0 + Math.random() * 0.4);
+        }
+      }
+
+      if (isNitroActive) {
+        powerState.nitroFuel = Math.max(0, powerState.nitroFuel - 36 * dt);
+        state.speedKmh = Math.min(330, state.speedKmh + 45 * dt);
+
+        if (state.position) {
+          const q = state.quaternion || { y: 0, w: 1 };
+          const forwardX = -2 * (q.x * q.z + q.w * q.y);
+          const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
+          state.position.x += forwardX * 10.2 * dt;
+          state.position.z += forwardZ * 10.2 * dt;
+        }
+
+        if (powerState.fxOverlayEl) {
+          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(6, 182, 212, 0.25) 90%, rgba(14, 165, 233, 0.45) 100%)';
+          powerState.fxOverlayEl.style.opacity = '1';
+        }
+      } else {
+        // Drift reward: 3x faster recharge when drifting
+        const isDrifting = Math.abs(state.angularVelocity ? state.angularVelocity.y : 0) > 0.9;
+        const rechargeRate = isDrifting ? 60 : 22;
+        powerState.nitroFuel = Math.min(powerState.maxNitro, powerState.nitroFuel + rechargeRate * dt);
+        if (powerState.fxOverlayEl) {
+          powerState.fxOverlayEl.style.opacity = '0';
+        }
+      }
+
+      const percent = Math.round((powerState.nitroFuel / powerState.maxNitro) * 100);
+      const accentColor = isNitroActive ? '#00e5ff' : '#06b6d4';
+      const glowColor = isNitroActive ? 'rgba(0,229,255,0.6)' : 'rgba(6,182,212,0.3)';
+
+      powerState.hudEl.style.setProperty('--hud-accent', accentColor);
+      powerState.hudEl.style.setProperty('--hud-glow', accentColor);
+      powerState.hudEl.style.border = `1.5px solid ${accentColor}`;
+      powerState.hudEl.style.boxShadow = `0 10px 30px rgba(0,0,0,0.65), 0 0 20px ${glowColor}`;
+
+      powerState.hudEl.innerHTML = `
+        <div class="hud-keycap ${wantsNitro ? 'pressed' : ''}">
+          <span class="key-sub">BOOST</span>
+          <span class="key-name">SHIFT</span>
+        </div>
+        <div class="hud-telemetry-body">
+          <div class="hud-top-row">
+            <div class="hud-status-badge">
+              <span class="hud-icon">⚡</span>
+              <span class="hud-text" style="color: ${isNitroActive ? '#67e8f9' : '#a5f3fc'};">
+                ${isNitroActive ? '🔥 NITRO OVERBOOST ACTIF (+45 KM/H)' : (powerState.nitroFuel < 12 ? '⚡ RECHARGE NITRO (DRIFTEZ POUR CHARGER)' : '⚡ TURBO NITRO PRÊT • MAINTENIR')}
+              </span>
+            </div>
+            <div class="hud-speed-display" style="color: #38bdf8;">
+              <span>${speed}</span><span class="unit">KM/H</span>
+            </div>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" style="width: ${percent}%; background: linear-gradient(90deg, #0284c7, #06b6d4, #38bdf8, #67e8f9);"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- 3. CAMIONNETTE: BÉLIER CINÉTIQUE & SUPER GROUND SLAM ---
+    else if (vType === 'camionnette') {
+      const wantsRam = powerState.shiftKeyHeld;
+      const isRamActive = wantsRam && powerState.ramEnergy > 5;
+
+      if (isRamActive && !powerState.wasRamming) {
+        AudioFX.playKineticRam();
+      }
+      powerState.wasRamming = isRamActive;
+      powerState.isRamming = isRamActive;
+
+      if (isRamActive) {
+        powerState.ramEnergy = Math.max(0, powerState.ramEnergy - 30 * dt);
+        state.speedKmh = Math.min(285, state.speedKmh + 24 * dt);
+
+        // Anti-spin heavy bulldozer stabilization
+        if (state.angularVelocity) {
+          state.angularVelocity.x *= 0.75;
+          state.angularVelocity.y *= 0.85;
+          state.angularVelocity.z *= 0.75;
+        }
+        if (state.position) {
+          const q = state.quaternion || { y: 0, w: 1 };
+          const forwardX = -2 * (q.x * q.z + q.w * q.y);
+          const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
+          state.position.x += forwardX * 6.8 * dt;
+          state.position.z += forwardZ * 6.8 * dt;
+        }
+        if (powerState.fxOverlayEl) {
+          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(245, 158, 11, 0.22) 90%, rgba(217, 119, 6, 0.38) 100%)';
+          powerState.fxOverlayEl.style.opacity = '1';
+        }
+      } else {
+        powerState.ramEnergy = Math.min(powerState.maxRamEnergy, powerState.ramEnergy + 24 * dt);
+        if (powerState.fxOverlayEl && !powerState.slamTriggered) {
+          powerState.fxOverlayEl.style.opacity = '0';
+        }
+      }
+
+      // Ground slam detection on landing
+      if (!isGrounded) {
+        powerState.airborneFrames++;
+        if (powerState.airborneFrames > 12) powerState.slamCharged = true;
+      } else {
+        if (powerState.slamCharged) {
+          powerState.slamCharged = false;
+          state.speedKmh = Math.min(290, state.speedKmh + 28);
+          AudioFX.playGroundSlam();
+          powerState.slamTriggered = true;
+          if (powerState.fxOverlayEl) {
+            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 55%, rgba(245, 158, 11, 0.45) 100%)';
+            powerState.fxOverlayEl.style.opacity = '1';
+            setTimeout(() => { if (powerState.fxOverlayEl && !powerState.isRamming) powerState.fxOverlayEl.style.opacity = '0'; }, 320);
+          }
+          setTimeout(() => { powerState.slamTriggered = false; }, 1400);
+        }
+        powerState.airborneFrames = 0;
+      }
+
+      const percent = Math.round((powerState.ramEnergy / powerState.maxRamEnergy) * 100);
+      const accentColor = powerState.slamTriggered ? '#fbbf24' : (isRamActive ? '#f59e0b' : '#d97706');
+      const glowColor = isRamActive ? 'rgba(245,158,11,0.6)' : 'rgba(217,119,6,0.3)';
+
+      powerState.hudEl.style.setProperty('--hud-accent', accentColor);
+      powerState.hudEl.style.setProperty('--hud-glow', accentColor);
+      powerState.hudEl.style.border = `1.5px solid ${accentColor}`;
+      powerState.hudEl.style.boxShadow = `0 10px 30px rgba(0,0,0,0.65), 0 0 20px ${glowColor}`;
+
+      powerState.hudEl.innerHTML = `
+        <div class="hud-keycap ${wantsRam ? 'pressed' : ''}">
+          <span class="key-sub">BÉLIER</span>
+          <span class="key-name">SHIFT</span>
+        </div>
+        <div class="hud-telemetry-body">
+          <div class="hud-top-row">
+            <div class="hud-status-badge">
+              <span class="hud-icon">🛡️</span>
+              <span class="hud-text" style="color: ${powerState.slamTriggered ? '#fef08a' : (isRamActive ? '#fde68a' : '#fed7aa')};">
+                ${powerState.slamTriggered ? '💥 GROUND SLAM ACTIF (+28 KM/H) !' : (isRamActive ? '🛡️ BÉLIER CINÉTIQUE ACTIF' : (powerState.slamCharged ? '⚡ SLAM CHARGÉ • PRÊT À L\'IMPACT !' : 'BLINDAGE LOURD • MAINTENIR [SHIFT]'))}
+              </span>
+            </div>
+            <div class="hud-speed-display" style="color: #fbbf24;">
+              <span>${speed}</span><span class="unit">KM/H</span>
+            </div>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" style="width: ${percent}%; background: linear-gradient(90deg, #b45309, #d97706, #f59e0b, #fbbf24);"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- 4. AVION: VOL PLANÉ & POSTCOMBUSTION SUPERSONIQUE ---
+    else if (vType === 'avion') {
+      const jetFlames = ensurePlaneJetFlames(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
+      const wantsAfterburner = powerState.shiftKeyHeld || powerState.spaceKeyHeld;
+      const isAfterburnerActive = wantsAfterburner && powerState.afterburnerFuel > 4;
+
+      if (isAfterburnerActive && !powerState.wasAfterburning) {
+        AudioFX.playAfterburner();
+      }
+      powerState.wasAfterburning = isAfterburnerActive;
+      powerState.isAfterburning = isAfterburnerActive;
+
+      // 3D jet flame jitter
+      if (jetFlames) {
+        jetFlames.visible = isAfterburnerActive;
+        if (isAfterburnerActive) {
+          const jitter = 0.88 + Math.random() * 0.3;
+          jetFlames.scale.set(jitter, jitter, 1.0 + Math.random() * 0.45);
+        }
+      }
+
+      if (isAfterburnerActive) {
+        powerState.afterburnerFuel = Math.max(0, powerState.afterburnerFuel - 30 * dt);
+        state.speedKmh = Math.min(325, state.speedKmh + 38 * dt);
+
+        if (state.position) {
+          const q = state.quaternion || { y: 0, w: 1 };
+          const forwardX = -2 * (q.x * q.z + q.w * q.y);
+          const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
+          state.position.x += forwardX * 9.2 * dt;
+          state.position.z += forwardZ * 9.2 * dt;
+        }
+
+        if (powerState.fxOverlayEl) {
+          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(168, 85, 247, 0.25) 90%, rgba(192, 132, 252, 0.45) 100%)';
+          powerState.fxOverlayEl.style.opacity = '1';
+        }
+      } else {
+        powerState.afterburnerFuel = Math.min(powerState.maxAfterburner, powerState.afterburnerFuel + 22 * dt);
+        if (powerState.fxOverlayEl && !powerState.isGliding) {
+          powerState.fxOverlayEl.style.opacity = '0';
+        }
+      }
+
+      // Glider aerodynamics in air
+      if (!isGrounded) {
+        powerState.airborneFrames++;
+        if (powerState.airborneFrames > 8 && powerState.glideRemaining > 0) {
+          powerState.isGliding = true;
+          powerState.glideRemaining = Math.max(0, powerState.glideRemaining - dt);
+
+          if (state.position && state.position.y !== undefined) {
+            const liftRate = 14.5 * (powerState.glideRemaining / powerState.maxGlide);
+            state.position.y += liftRate * dt;
+
+            const forwardX = -Math.sin(state.quaternion.y * 2);
+            const forwardZ = -Math.cos(state.quaternion.y * 2);
+            state.position.x += forwardX * 3.8 * dt;
+            state.position.z += forwardZ * 3.8 * dt;
+          }
+
+          if (powerState.fxOverlayEl && !isAfterburnerActive) {
+            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 70%, rgba(16, 185, 129, 0.18) 100%)';
+            powerState.fxOverlayEl.style.opacity = '1';
+          }
+        }
+      } else {
+        powerState.airborneFrames = 0;
+        powerState.isGliding = false;
+        powerState.glideRemaining = powerState.maxGlide;
+      }
+
+      const percent = Math.round(powerState.isGliding ? (powerState.glideRemaining / powerState.maxGlide) * 100 : powerState.afterburnerFuel);
+      const accentColor = isAfterburnerActive ? '#d946ef' : (powerState.isGliding ? '#34d399' : '#a855f7');
+      const glowColor = isAfterburnerActive ? 'rgba(217,70,239,0.55)' : (powerState.isGliding ? 'rgba(52,211,153,0.45)' : 'rgba(168,85,247,0.3)');
+
+      powerState.hudEl.style.setProperty('--hud-accent', accentColor);
+      powerState.hudEl.style.setProperty('--hud-glow', accentColor);
+      powerState.hudEl.style.border = `1.5px solid ${accentColor}`;
+      powerState.hudEl.style.boxShadow = `0 10px 30px rgba(0,0,0,0.65), 0 0 20px ${glowColor}`;
+
+      powerState.hudEl.innerHTML = `
+        <div class="hud-keycap ${wantsAfterburner ? 'pressed' : ''}">
+          <span class="key-sub">REACTEUR</span>
+          <span class="key-name">SHIFT</span>
+        </div>
+        <div class="hud-telemetry-body">
+          <div class="hud-top-row">
+            <div class="hud-status-badge">
+              <span class="hud-icon">🚀</span>
+              <span class="hud-text" style="color: ${isAfterburnerActive ? '#f0abfc' : (powerState.isGliding ? '#6ee7b7' : '#d8b4fe')};">
+                ${isAfterburnerActive ? '🚀 POSTCOMBUSTION ACTIVE (+35 KM/H)' : (powerState.isGliding ? '✈️ VOL PLANÉ ACTIF (PORTANCE MAX)' : '🚀 POSTCOMBUSTION • MAINTENIR')}
+              </span>
+            </div>
+            <div class="hud-speed-display" style="color: ${isAfterburnerActive ? '#e879f9' : '#c084fc'};">
+              <span>${speed}</span><span class="unit">KM/H</span>
+            </div>
+          </div>
+          <div class="hud-bar-track">
+            <div class="hud-bar-fill" style="width: ${percent}%; background: ${powerState.isGliding ? 'linear-gradient(90deg, #059669, #10b981, #34d399)' : 'linear-gradient(90deg, #7e22ce, #a855f7, #d946ef, #f0abfc)'};"></div>
           </div>
         </div>
       `;
@@ -1533,6 +1940,10 @@
     powerState.isNitroBoosting = false;
     powerState.isDrsActive = false;
     powerState.wasDrsActive = false;
+    powerState.isRamming = false;
+    powerState.wasRamming = false;
+    powerState.isAfterburning = false;
+    powerState.wasAfterburning = false;
   }
 
   // --- 6. GARAGE UI ENHANCEMENTS & SHOWROOM STYLING ---
@@ -1603,16 +2014,145 @@
         letter-spacing: 0.5px;
         text-transform: uppercase;
       }
+      /* Telemetry Ability HUD Container */
+      .polytrack-telemetry-hud {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        pointer-events: none;
+        font-family: forced_square, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: rgba(8, 12, 22, 0.90);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-radius: 12px;
+        padding: 8px 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.65);
+        min-width: 350px;
+        max-width: 440px;
+        box-sizing: border-box;
+        transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      /* Interactive 3D Keycap */
+      .hud-keycap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 54px;
+        height: 40px;
+        background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 7px;
+        box-shadow: 0 4px 0 #111827, 0 6px 12px rgba(0,0,0,0.5);
+        transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.06s ease;
+        flex-shrink: 0;
+        user-select: none;
+      }
+      .hud-keycap .key-sub {
+        font-size: 7.5px;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        color: rgba(255, 255, 255, 0.6);
+        text-transform: uppercase;
+        line-height: 1;
+        margin-bottom: 2px;
+      }
+      .hud-keycap .key-name {
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.6px;
+        color: #ffffff;
+        text-transform: uppercase;
+        line-height: 1;
+      }
+      .hud-keycap.pressed {
+        transform: translateY(3px);
+        box-shadow: 0 1px 0 #111827, 0 0 16px var(--hud-glow, #38bdf8);
+        background: linear-gradient(180deg, var(--hud-accent, #0284c7) 0%, #0f172a 100%);
+        border-color: #ffffff;
+      }
+      .hud-keycap.pressed .key-sub {
+        color: #ffffff;
+      }
+
+      /* Telemetry Content & Bars */
+      .hud-telemetry-body {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        flex-grow: 1;
+      }
+      .hud-top-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .hud-status-badge {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .hud-status-badge .hud-icon {
+        font-size: 17px;
+        line-height: 1;
+        filter: drop-shadow(0 0 6px var(--hud-glow, #38bdf8));
+      }
+      .hud-status-badge .hud-text {
+        text-shadow: 0 0 8px rgba(0,0,0,0.8);
+      }
+      .hud-speed-display {
+        font-family: forced_square, monospace;
+        font-size: 15px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: baseline;
+        gap: 2px;
+        flex-shrink: 0;
+      }
+      .hud-speed-display .unit {
+        font-size: 9px;
+        font-weight: 700;
+        opacity: 0.85;
+      }
+      .hud-bar-track {
+        width: 100%;
+        height: 7px;
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        overflow: hidden;
+        position: relative;
+      }
+      .hud-bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.08s linear;
+      }
+
       .customization-panel-ui > .options-panel > button.vehicle-option-btn .vehicle-preview-tooltip {
         position: absolute;
         right: calc(100% + 8px);
         top: 50%;
         transform: translateY(-50%);
-        width: 230px;
-        background: var(--surface-color);
+        width: 250px;
+        background: rgba(10, 16, 30, 0.96);
         border: 2px solid var(--surface-tertiary-color);
-        padding: 10px 12px;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+        border-radius: 8px;
+        padding: 12px 14px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.7);
         pointer-events: none;
         opacity: 0;
         visibility: hidden;
@@ -1635,7 +2175,7 @@
       .vehicle-preview-tooltip .vtt-title {
         font-size: 13px;
         font-weight: 900;
-        color: var(--text-color);
+        color: #ffffff;
         text-transform: uppercase;
         letter-spacing: 0.4px;
       }
@@ -1646,17 +2186,6 @@
         border-radius: 3px;
         letter-spacing: 0.5px;
         text-transform: uppercase;
-      }
-      .vehicle-preview-tooltip .vtt-power {
-        font-size: 11px;
-        font-weight: 800;
-        margin-bottom: 4px;
-      }
-      .vehicle-preview-tooltip .vtt-desc {
-        font-size: 10px;
-        color: var(--text-color);
-        opacity: 0.8;
-        line-height: 1.35;
       }
     `;
     document.head.appendChild(style);
@@ -1694,10 +2223,19 @@
       tooltip.innerHTML = `
         <div class="vtt-header">
           <span class="vtt-title">${v.name}</span>
-          <span class="vtt-badge" style="background: ${v.color}25; color: ${v.color}; border: 1px solid ${v.color}50;">${v.powerKey || 'POUVOIR'}</span>
+          <span class="vtt-badge" style="background: ${v.color}25; color: ${v.color}; border: 1px solid ${v.color}60;">${v.badge || 'POUVOIR'}</span>
         </div>
-        <div class="vtt-power" style="color: ${v.color};">${v.powerName}</div>
-        <div class="vtt-desc">${v.powerDesc}</div>
+        <div class="vtt-power" style="color: ${v.color}; font-size: 11.5px; font-weight: 900; margin: 4px 0 2px 0;">${v.powerName}</div>
+        <div class="vtt-key" style="display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.08); border-radius: 4px; padding: 2px 6px; font-size: 9.5px; font-weight: 800; color: #e2e8f0; margin-bottom: 6px;">
+          🎮 <span>${v.powerKey}</span>
+        </div>
+        <div class="vtt-desc" style="font-size: 10px; line-height: 1.4; color: #cbd5e1; margin-bottom: 8px;">${v.powerDesc}</div>
+        <div class="vtt-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px; font-size: 9.5px;">
+          <div><span style="opacity: 0.6;">Vmax :</span> <b style="color: #fff;">${v.statLabels.speed}</b></div>
+          <div><span style="opacity: 0.6;">0-100 :</span> <b style="color: #fff;">${v.statLabels.accel}</b></div>
+          <div><span style="opacity: 0.6;">Grip :</span> <b style="color: #fff;">${v.statLabels.grip}</b></div>
+          <div><span style="opacity: 0.6;">Spécial :</span> <b style="color: ${v.color};">${v.statLabels.aero}</b></div>
+        </div>
       `;
       btn.appendChild(tooltip);
 
