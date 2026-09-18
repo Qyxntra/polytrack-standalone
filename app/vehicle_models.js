@@ -1496,14 +1496,72 @@
   });
 
   function setupHUD() {
+    injectGlobalStyles();
     if (powerState.hudEl && document.body.contains(powerState.hudEl)) return;
 
     // In-game Telemetry HUD container
     const hud = document.createElement('div');
     hud.id = 'polytrack-power-hud';
     hud.className = 'polytrack-telemetry-hud';
+    hud.innerHTML = `
+      <!-- LEFT BUTTON: POWERUP / ABILITY BUTTON -->
+      <div class="hud-btn hud-power-btn" id="hudPowerBtn" title="Maintenir [Shift] ou cliquer">
+        <div class="hud-btn-header">
+          <span class="hud-key-tag" id="hudKeyTag">SHIFT</span>
+          <span class="hud-tag-title" id="hudPowerTag">DRS</span>
+        </div>
+        <div class="hud-btn-main">
+          <span class="hud-btn-icon" id="hudPowerIcon">🏎️</span>
+          <span class="hud-btn-status" id="hudPowerStatus">DRS PRÊT</span>
+        </div>
+        <div class="hud-gauge-track">
+          <div class="hud-gauge-fill" id="hudPowerBar"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT BUTTON: KM/H SPEEDOMETER BUTTON -->
+      <div class="hud-btn hud-speed-btn" id="hudSpeedBtn">
+        <div class="hud-btn-header">
+          <span class="hud-speed-label">VITESSE</span>
+          <span class="hud-speed-max-tag" id="hudSpeedMax">340 MAX</span>
+        </div>
+        <div class="hud-btn-main hud-speed-main">
+          <span class="hud-speed-val" id="hudSpeedVal">0</span>
+          <span class="hud-speed-unit">KM/H</span>
+        </div>
+        <div class="hud-gauge-track">
+          <div class="hud-gauge-fill hud-speed-bar" id="hudSpeedBar"></div>
+        </div>
+      </div>
+    `;
+
+    // Interactive pointer handling on the powerup button (mobile/mouse direct press support)
+    const powerBtn = hud.querySelector('#hudPowerBtn');
+    powerBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      powerState.shiftKeyHeld = true;
+      powerState.drsKeyHeld = true;
+    });
+    const releasePower = () => {
+      powerState.shiftKeyHeld = false;
+      powerState.drsKeyHeld = false;
+    };
+    powerBtn.addEventListener('pointerup', releasePower);
+    powerBtn.addEventListener('pointerleave', releasePower);
+    powerBtn.addEventListener('pointercancel', releasePower);
+
     document.body.appendChild(hud);
     powerState.hudEl = hud;
+    powerState.powerBtn = powerBtn;
+    powerState.keyTagEl = hud.querySelector('#hudKeyTag');
+    powerState.powerTagEl = hud.querySelector('#hudPowerTag');
+    powerState.powerIconEl = hud.querySelector('#hudPowerIcon');
+    powerState.powerStatusEl = hud.querySelector('#hudPowerStatus');
+    powerState.powerBarEl = hud.querySelector('#hudPowerBar');
+    powerState.speedBtn = hud.querySelector('#hudSpeedBtn');
+    powerState.speedMaxEl = hud.querySelector('#hudSpeedMax');
+    powerState.speedValEl = hud.querySelector('#hudSpeedVal');
+    powerState.speedBarEl = hud.querySelector('#hudSpeedBar');
 
     // Fullscreen FX overlay for speed lines and impact flashes
     if (!powerState.fxOverlayEl || !document.body.contains(powerState.fxOverlayEl)) {
@@ -1519,6 +1577,52 @@
       `;
       document.body.appendChild(fx);
       powerState.fxOverlayEl = fx;
+    }
+  }
+
+  function renderTelemetryHUD(opts) {
+    if (!powerState.hudEl || !powerState.powerBtn) return;
+
+    // Update CSS custom properties & container glow
+    powerState.hudEl.style.setProperty('--hud-accent', opts.accentColor);
+    powerState.hudEl.style.setProperty('--hud-glow', opts.glowColor);
+    powerState.hudEl.style.setProperty('--hud-accent-dark', opts.accentDark || '#0f172a');
+    powerState.hudEl.style.border = `1.5px solid ${opts.accentColor}`;
+    powerState.hudEl.style.boxShadow = `0 12px 30px rgba(0,0,0,0.7), 0 0 20px ${opts.glowColor}`;
+
+    // Left Button: Powerup Button
+    if (opts.isActive) {
+      powerState.powerBtn.className = 'hud-btn hud-power-btn active pressed';
+    } else if (opts.isHeld) {
+      powerState.powerBtn.className = 'hud-btn hud-power-btn pressed';
+    } else {
+      powerState.powerBtn.className = 'hud-btn hud-power-btn';
+    }
+
+    if (powerState.keyTagEl) powerState.keyTagEl.textContent = opts.keyText || 'SHIFT';
+    if (powerState.powerTagEl) powerState.powerTagEl.textContent = opts.tagText;
+    if (powerState.powerIconEl) powerState.powerIconEl.textContent = opts.iconText;
+    if (powerState.powerStatusEl) {
+      powerState.powerStatusEl.textContent = opts.statusText;
+      powerState.powerStatusEl.style.color = opts.statusColor || '#ffffff';
+    }
+    if (powerState.powerBarEl) {
+      powerState.powerBarEl.style.width = opts.powerPercent + '%';
+      powerState.powerBarEl.style.background = opts.powerGradient;
+    }
+
+    // Right Button: KM/H Speedometer Button
+    if (powerState.speedMaxEl) powerState.speedMaxEl.textContent = opts.maxSpeed + ' MAX';
+    if (powerState.speedValEl) {
+      powerState.speedValEl.textContent = opts.speed;
+      powerState.speedValEl.style.color = opts.speedColor || '#ffffff';
+    }
+    if (powerState.speedBarEl) {
+      const spdPct = Math.min(100, Math.round((opts.speed / opts.maxSpeed) * 100));
+      powerState.speedBarEl.style.width = spdPct + '%';
+      powerState.speedBarEl.style.background = opts.speedGradient || (spdPct > 80
+        ? `linear-gradient(90deg, #0284c7, ${opts.accentColor}, #ffffff)`
+        : `linear-gradient(90deg, rgba(255,255,255,0.25), ${opts.accentColor})`);
     }
   }
 
@@ -1614,37 +1718,28 @@
         }
       }
 
-      const percent = Math.min(100, Math.round((speed / 340) * 100));
-      const accentColor = isDrsActive ? '#22c55e' : '#ef4444';
-      const glowColor = isDrsActive ? 'rgba(34,197,94,0.55)' : 'rgba(239,68,68,0.35)';
+      const isDrsHeld = wantsDrs;
+      const accentColor = isDrsActive ? '#22c55e' : (isDrsHeld ? '#f59e0b' : '#ef4444');
+      const glowColor = isDrsActive ? 'rgba(34,197,94,0.6)' : (isDrsHeld ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.35)');
+      const accentDark = isDrsActive ? '#14532d' : '#7f1d1d';
 
-      powerState.hudEl.style.setProperty('--hud-accent', accentColor);
-      powerState.hudEl.style.setProperty('--hud-glow', accentColor);
-      powerState.hudEl.style.border = `1.5px solid ${accentColor}`;
-      powerState.hudEl.style.boxShadow = `0 10px 30px rgba(0,0,0,0.65), 0 0 20px ${glowColor}`;
-
-      powerState.hudEl.innerHTML = `
-        <div class="hud-keycap ${wantsDrs ? 'pressed' : ''}">
-          <span class="key-sub">HOLD</span>
-          <span class="key-name">SHIFT</span>
-        </div>
-        <div class="hud-telemetry-body">
-          <div class="hud-top-row">
-            <div class="hud-status-badge">
-              <span class="hud-icon">🏎️</span>
-              <span class="hud-text" style="color: ${isDrsActive ? '#86efac' : '#fca5a5'};">
-                ${isDrsActive ? '🟢 DRS OUVERT • KERS 340 KM/H' : '🏎️ DRS PRÊT • MAINTENIR [SHIFT]'}
-              </span>
-            </div>
-            <div class="hud-speed-display" style="color: ${isDrsActive ? '#4ade80' : '#f87171'};">
-              <span>${speed}</span><span class="unit">KM/H</span>
-            </div>
-          </div>
-          <div class="hud-bar-track">
-            <div class="hud-bar-fill" style="width: ${percent}%; background: ${isDrsActive ? 'linear-gradient(90deg, #15803d, #22c55e, #4ade80)' : 'linear-gradient(90deg, #991b1b, #ef4444, #fca5a5)'};"></div>
-          </div>
-        </div>
-      `;
+      renderTelemetryHUD({
+        accentColor,
+        glowColor,
+        accentDark,
+        isActive: isDrsActive,
+        isHeld: isDrsHeld,
+        keyText: 'SHIFT',
+        tagText: 'DRS / KERS',
+        iconText: isDrsActive ? '🟢' : '🏎️',
+        statusText: isDrsActive ? 'DRS OUVERT • 340 KM/H' : (isDrsHeld && !isMovingForward ? 'DRS INACTIF (< 15 KM/H)' : 'DRS PRÊT • MAINTENIR'),
+        statusColor: isDrsActive ? '#86efac' : '#fca5a5',
+        powerPercent: 100,
+        powerGradient: isDrsActive ? 'linear-gradient(90deg, #15803d, #22c55e, #4ade80)' : 'linear-gradient(90deg, #991b1b, #ef4444)',
+        speed,
+        maxSpeed: 340,
+        speedColor: isDrsActive ? '#4ade80' : '#f87171'
+      });
     }
 
     // --- 2. VOITURE: TURBO NITRO BOOST & 3D REACTIVE FLAMES ---
@@ -1696,37 +1791,29 @@
         }
       }
 
+      const isNitroHeld = wantsNitro;
       const percent = Math.round((powerState.nitroFuel / powerState.maxNitro) * 100);
       const accentColor = isNitroActive ? '#00e5ff' : '#06b6d4';
-      const glowColor = isNitroActive ? 'rgba(0,229,255,0.6)' : 'rgba(6,182,212,0.3)';
+      const glowColor = isNitroActive ? 'rgba(0,229,255,0.65)' : 'rgba(6,182,212,0.35)';
+      const accentDark = isNitroActive ? '#0e7490' : '#155e75';
 
-      powerState.hudEl.style.setProperty('--hud-accent', accentColor);
-      powerState.hudEl.style.setProperty('--hud-glow', accentColor);
-      powerState.hudEl.style.border = `1.5px solid ${accentColor}`;
-      powerState.hudEl.style.boxShadow = `0 10px 30px rgba(0,0,0,0.65), 0 0 20px ${glowColor}`;
-
-      powerState.hudEl.innerHTML = `
-        <div class="hud-keycap ${wantsNitro ? 'pressed' : ''}">
-          <span class="key-sub">BOOST</span>
-          <span class="key-name">SHIFT</span>
-        </div>
-        <div class="hud-telemetry-body">
-          <div class="hud-top-row">
-            <div class="hud-status-badge">
-              <span class="hud-icon">⚡</span>
-              <span class="hud-text" style="color: ${isNitroActive ? '#67e8f9' : '#a5f3fc'};">
-                ${isNitroActive ? '🔥 NITRO OVERBOOST ACTIF (+45 KM/H)' : (powerState.nitroFuel < 12 ? '⚡ RECHARGE NITRO (DRIFTEZ POUR CHARGER)' : '⚡ TURBO NITRO PRÊT • MAINTENIR')}
-              </span>
-            </div>
-            <div class="hud-speed-display" style="color: #38bdf8;">
-              <span>${speed}</span><span class="unit">KM/H</span>
-            </div>
-          </div>
-          <div class="hud-bar-track">
-            <div class="hud-bar-fill" style="width: ${percent}%; background: linear-gradient(90deg, #0284c7, #06b6d4, #38bdf8, #67e8f9);"></div>
-          </div>
-        </div>
-      `;
+      renderTelemetryHUD({
+        accentColor,
+        glowColor,
+        accentDark,
+        isActive: isNitroActive,
+        isHeld: isNitroHeld,
+        keyText: 'SHIFT',
+        tagText: 'TURBO NITRO',
+        iconText: isNitroActive ? '🔥' : '⚡',
+        statusText: isNitroActive ? 'NITRO BOOST (+45 KM/H)' : (powerState.nitroFuel < 15 ? 'RECHARGE (DRIFTEZ !)' : 'NITRO PRÊT • MAINTENIR'),
+        statusColor: isNitroActive ? '#67e8f9' : (powerState.nitroFuel < 15 ? '#fef08a' : '#a5f3fc'),
+        powerPercent: percent,
+        powerGradient: isNitroActive ? 'linear-gradient(90deg, #0284c7, #06b6d4, #38bdf8, #e0f2fe)' : 'linear-gradient(90deg, #0284c7, #06b6d4)',
+        speed,
+        maxSpeed: 330,
+        speedColor: isNitroActive ? '#38bdf8' : '#e0f2fe'
+      });
     }
 
     // --- 3. CAMIONNETTE: BÉLIER CINÉTIQUE & SUPER GROUND SLAM ---
@@ -1788,37 +1875,30 @@
         powerState.airborneFrames = 0;
       }
 
+      const isRamHeld = wantsRam;
       const percent = Math.round((powerState.ramEnergy / powerState.maxRamEnergy) * 100);
-      const accentColor = powerState.slamTriggered ? '#fbbf24' : (isRamActive ? '#f59e0b' : '#d97706');
-      const glowColor = isRamActive ? 'rgba(245,158,11,0.6)' : 'rgba(217,119,6,0.3)';
+      const isSpecial = powerState.slamTriggered || isRamActive;
+      const accentColor = powerState.slamTriggered ? '#fbbf24' : (isRamActive ? '#f59e0b' : (powerState.slamCharged ? '#fbbf24' : '#d97706'));
+      const glowColor = isSpecial ? 'rgba(245,158,11,0.65)' : 'rgba(217,119,6,0.35)';
+      const accentDark = isSpecial ? '#92400e' : '#451a03';
 
-      powerState.hudEl.style.setProperty('--hud-accent', accentColor);
-      powerState.hudEl.style.setProperty('--hud-glow', accentColor);
-      powerState.hudEl.style.border = `1.5px solid ${accentColor}`;
-      powerState.hudEl.style.boxShadow = `0 10px 30px rgba(0,0,0,0.65), 0 0 20px ${glowColor}`;
-
-      powerState.hudEl.innerHTML = `
-        <div class="hud-keycap ${wantsRam ? 'pressed' : ''}">
-          <span class="key-sub">BÉLIER</span>
-          <span class="key-name">SHIFT</span>
-        </div>
-        <div class="hud-telemetry-body">
-          <div class="hud-top-row">
-            <div class="hud-status-badge">
-              <span class="hud-icon">🛡️</span>
-              <span class="hud-text" style="color: ${powerState.slamTriggered ? '#fef08a' : (isRamActive ? '#fde68a' : '#fed7aa')};">
-                ${powerState.slamTriggered ? '💥 GROUND SLAM ACTIF (+28 KM/H) !' : (isRamActive ? '🛡️ BÉLIER CINÉTIQUE ACTIF' : (powerState.slamCharged ? '⚡ SLAM CHARGÉ • PRÊT À L\'IMPACT !' : 'BLINDAGE LOURD • MAINTENIR [SHIFT]'))}
-              </span>
-            </div>
-            <div class="hud-speed-display" style="color: #fbbf24;">
-              <span>${speed}</span><span class="unit">KM/H</span>
-            </div>
-          </div>
-          <div class="hud-bar-track">
-            <div class="hud-bar-fill" style="width: ${percent}%; background: linear-gradient(90deg, #b45309, #d97706, #f59e0b, #fbbf24);"></div>
-          </div>
-        </div>
-      `;
+      renderTelemetryHUD({
+        accentColor,
+        glowColor,
+        accentDark,
+        isActive: isSpecial,
+        isHeld: isRamHeld,
+        keyText: 'SHIFT',
+        tagText: 'BÉLIER LOURD',
+        iconText: powerState.slamTriggered ? '💥' : (powerState.slamCharged ? '⚡' : '🛡️'),
+        statusText: powerState.slamTriggered ? 'GROUND SLAM (+28 KM/H) !' : (isRamActive ? 'BÉLIER CINÉTIQUE ACTIF' : (powerState.slamCharged ? 'SLAM CHARGÉ (IMPACT !)' : (powerState.ramEnergy < 15 ? 'RECHARGE ÉNERGIE' : 'BÉLIER PRÊT • MAINTENIR'))),
+        statusColor: powerState.slamTriggered ? '#fef08a' : (isRamActive ? '#fde68a' : '#fed7aa'),
+        powerPercent: percent,
+        powerGradient: powerState.slamTriggered ? 'linear-gradient(90deg, #f59e0b, #fbbf24, #fef08a)' : (isRamActive ? 'linear-gradient(90deg, #b45309, #f59e0b, #fbbf24)' : 'linear-gradient(90deg, #92400e, #d97706)'),
+        speed,
+        maxSpeed: 290,
+        speedColor: powerState.slamTriggered ? '#fbbf24' : (isRamActive ? '#fde68a' : '#ffffff')
+      });
     }
 
     // --- 4. AVION: VOL PLANÉ & POSTCOMBUSTION SUPERSONIQUE ---
@@ -1893,37 +1973,30 @@
         powerState.glideRemaining = powerState.maxGlide;
       }
 
+      const isAfterburnerHeld = wantsAfterburner;
       const percent = Math.round(powerState.isGliding ? (powerState.glideRemaining / powerState.maxGlide) * 100 : powerState.afterburnerFuel);
+      const isJetActive = isAfterburnerActive || powerState.isGliding;
       const accentColor = isAfterburnerActive ? '#d946ef' : (powerState.isGliding ? '#34d399' : '#a855f7');
-      const glowColor = isAfterburnerActive ? 'rgba(217,70,239,0.55)' : (powerState.isGliding ? 'rgba(52,211,153,0.45)' : 'rgba(168,85,247,0.3)');
+      const glowColor = isAfterburnerActive ? 'rgba(217,70,239,0.65)' : (powerState.isGliding ? 'rgba(52,211,153,0.55)' : 'rgba(168,85,247,0.35)');
+      const accentDark = isAfterburnerActive ? '#701a75' : (powerState.isGliding ? '#064e3b' : '#3b0764');
 
-      powerState.hudEl.style.setProperty('--hud-accent', accentColor);
-      powerState.hudEl.style.setProperty('--hud-glow', accentColor);
-      powerState.hudEl.style.border = `1.5px solid ${accentColor}`;
-      powerState.hudEl.style.boxShadow = `0 10px 30px rgba(0,0,0,0.65), 0 0 20px ${glowColor}`;
-
-      powerState.hudEl.innerHTML = `
-        <div class="hud-keycap ${wantsAfterburner ? 'pressed' : ''}">
-          <span class="key-sub">REACTEUR</span>
-          <span class="key-name">SHIFT</span>
-        </div>
-        <div class="hud-telemetry-body">
-          <div class="hud-top-row">
-            <div class="hud-status-badge">
-              <span class="hud-icon">🚀</span>
-              <span class="hud-text" style="color: ${isAfterburnerActive ? '#f0abfc' : (powerState.isGliding ? '#6ee7b7' : '#d8b4fe')};">
-                ${isAfterburnerActive ? '🚀 POSTCOMBUSTION ACTIVE (+35 KM/H)' : (powerState.isGliding ? '✈️ VOL PLANÉ ACTIF (PORTANCE MAX)' : '🚀 POSTCOMBUSTION • MAINTENIR')}
-              </span>
-            </div>
-            <div class="hud-speed-display" style="color: ${isAfterburnerActive ? '#e879f9' : '#c084fc'};">
-              <span>${speed}</span><span class="unit">KM/H</span>
-            </div>
-          </div>
-          <div class="hud-bar-track">
-            <div class="hud-bar-fill" style="width: ${percent}%; background: ${powerState.isGliding ? 'linear-gradient(90deg, #059669, #10b981, #34d399)' : 'linear-gradient(90deg, #7e22ce, #a855f7, #d946ef, #f0abfc)'};"></div>
-          </div>
-        </div>
-      `;
+      renderTelemetryHUD({
+        accentColor,
+        glowColor,
+        accentDark,
+        isActive: isJetActive,
+        isHeld: isAfterburnerHeld,
+        keyText: 'SHIFT',
+        tagText: powerState.isGliding ? 'VOL PLANÉ' : 'POSTCOMBUSTION',
+        iconText: powerState.isGliding ? '✈️' : '🚀',
+        statusText: isAfterburnerActive ? 'POSTCOMBUSTION (+35 KM/H)' : (powerState.isGliding ? 'PORTANCE PLANÉE MAX' : (powerState.afterburnerFuel < 15 ? 'RECHARGE CARBURANT' : 'RÉACTEUR PRÊT • MAINTENIR')),
+        statusColor: isAfterburnerActive ? '#f0abfc' : (powerState.isGliding ? '#6ee7b7' : '#d8b4fe'),
+        powerPercent: percent,
+        powerGradient: powerState.isGliding ? 'linear-gradient(90deg, #059669, #10b981, #34d399)' : (isAfterburnerActive ? 'linear-gradient(90deg, #7e22ce, #a855f7, #d946ef, #f5d0fe)' : 'linear-gradient(90deg, #6b21a8, #a855f7)'),
+        speed,
+        maxSpeed: 325,
+        speedColor: isAfterburnerActive ? '#e879f9' : (powerState.isGliding ? '#6ee7b7' : '#ffffff')
+      });
     }
   }
 
@@ -1931,6 +2004,16 @@
     if (powerState.hudEl && powerState.hudEl.parentNode) {
       powerState.hudEl.parentNode.removeChild(powerState.hudEl);
       powerState.hudEl = null;
+      powerState.powerBtn = null;
+      powerState.keyTagEl = null;
+      powerState.powerTagEl = null;
+      powerState.powerIconEl = null;
+      powerState.powerStatusEl = null;
+      powerState.powerBarEl = null;
+      powerState.speedBtn = null;
+      powerState.speedMaxEl = null;
+      powerState.speedValEl = null;
+      powerState.speedBarEl = null;
     }
     if (powerState.fxOverlayEl && powerState.fxOverlayEl.parentNode) {
       powerState.fxOverlayEl.parentNode.removeChild(powerState.fxOverlayEl);
@@ -2017,126 +2100,164 @@
       /* Telemetry Ability HUD Container */
       .polytrack-telemetry-hud {
         position: fixed;
-        bottom: 24px;
+        bottom: 22px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 1000;
         pointer-events: none;
         font-family: forced_square, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        background: rgba(8, 12, 22, 0.90);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: rgba(8, 13, 23, 0.88);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
         border-radius: 12px;
-        padding: 8px 18px;
+        padding: 6px 8px;
         display: flex;
         align-items: center;
-        gap: 14px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.65);
-        min-width: 350px;
-        max-width: 440px;
+        gap: 8px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7), 0 0 20px var(--hud-glow, rgba(0, 229, 255, 0.25));
+        border: 1.5px solid var(--hud-accent, rgba(255, 255, 255, 0.2));
         box-sizing: border-box;
+        user-select: none;
         transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
       }
 
-      /* Interactive 3D Keycap */
-      .hud-keycap {
+      /* Cohesive 3D Tactile Buttons (Twin Modules: Powerup Left, KM/H Right) */
+      .hud-btn {
+        position: relative;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        width: 54px;
-        height: 40px;
-        background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
-        border: 1px solid rgba(255, 255, 255, 0.25);
-        border-radius: 7px;
-        box-shadow: 0 4px 0 #111827, 0 6px 12px rgba(0,0,0,0.5);
-        transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.06s ease;
+        justify-content: space-between;
+        height: 52px;
+        background: linear-gradient(180deg, #263345 0%, #141c28 100%);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-top: 1.5px solid rgba(255, 255, 255, 0.45);
+        border-radius: 8px;
+        padding: 4px 8px 5px 8px;
+        box-shadow: 0 4px 0 #090e16, 0 6px 12px rgba(0, 0, 0, 0.55);
+        box-sizing: border-box;
         flex-shrink: 0;
-        user-select: none;
+        transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.06s ease, border-color 0.06s ease;
       }
-      .hud-keycap .key-sub {
-        font-size: 7.5px;
+
+      /* Pressed & Active states */
+      .hud-btn.pressed {
+        transform: translateY(3px);
+        box-shadow: 0 1px 0 #090e16, 0 0 14px var(--hud-glow, #38bdf8);
+        background: linear-gradient(180deg, #1b2838 0%, #0d1520 100%);
+      }
+      .hud-btn.active {
+        border-color: #ffffff;
+        background: linear-gradient(180deg, var(--hud-accent-dark, #0284c7) 0%, #0d1520 100%);
+        box-shadow: 0 1px 0 #090e16, 0 0 18px var(--hud-glow, #38bdf8);
+      }
+
+      /* Left Powerup Action Button */
+      .hud-power-btn {
+        width: 172px;
+        pointer-events: auto;
+        cursor: pointer;
+      }
+
+      /* Right Speedometer Button */
+      .hud-speed-btn {
+        width: 118px;
+      }
+
+      /* Header Rows */
+      .hud-btn-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        line-height: 1;
+      }
+      .hud-key-tag {
+        font-size: 8px;
+        font-weight: 900;
+        letter-spacing: 0.6px;
+        padding: 1px 4px;
+        background: rgba(255, 255, 255, 0.16);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 3px;
+        color: #ffffff;
+        text-transform: uppercase;
+      }
+      .hud-tag-title {
+        font-size: 8.5px;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        color: var(--hud-accent, #67e8f9);
+        text-transform: uppercase;
+        text-shadow: 0 0 6px var(--hud-glow, rgba(0, 229, 255, 0.4));
+      }
+      .hud-speed-label {
+        font-size: 8px;
         font-weight: 800;
         letter-spacing: 0.8px;
         color: rgba(255, 255, 255, 0.6);
         text-transform: uppercase;
-        line-height: 1;
-        margin-bottom: 2px;
       }
-      .hud-keycap .key-name {
-        font-size: 11px;
-        font-weight: 900;
-        letter-spacing: 0.6px;
-        color: #ffffff;
-        text-transform: uppercase;
-        line-height: 1;
-      }
-      .hud-keycap.pressed {
-        transform: translateY(3px);
-        box-shadow: 0 1px 0 #111827, 0 0 16px var(--hud-glow, #38bdf8);
-        background: linear-gradient(180deg, var(--hud-accent, #0284c7) 0%, #0f172a 100%);
-        border-color: #ffffff;
-      }
-      .hud-keycap.pressed .key-sub {
-        color: #ffffff;
+      .hud-speed-max-tag {
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        color: rgba(255, 255, 255, 0.5);
       }
 
-      /* Telemetry Content & Bars */
-      .hud-telemetry-body {
+      /* Main Content Rows */
+      .hud-btn-main {
         display: flex;
-        flex-direction: column;
+        align-items: center;
         gap: 5px;
-        flex-grow: 1;
+        margin: 1px 0;
       }
-      .hud-top-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
+      .hud-btn-icon {
+        font-size: 15px;
+        line-height: 1;
+        filter: drop-shadow(0 0 6px var(--hud-glow, rgba(0, 229, 255, 0.4)));
       }
-      .hud-status-badge {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        font-size: 12px;
+      .hud-btn-status {
+        font-size: 10.5px;
         font-weight: 900;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.4px;
+        color: #ffffff;
         text-transform: uppercase;
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
       }
-      .hud-status-badge .hud-icon {
-        font-size: 17px;
-        line-height: 1;
-        filter: drop-shadow(0 0 6px var(--hud-glow, #38bdf8));
-      }
-      .hud-status-badge .hud-text {
-        text-shadow: 0 0 8px rgba(0,0,0,0.8);
-      }
-      .hud-speed-display {
-        font-family: forced_square, monospace;
-        font-size: 15px;
-        font-weight: 900;
-        letter-spacing: 0.5px;
-        display: flex;
+
+      .hud-speed-main {
+        justify-content: center;
         align-items: baseline;
-        gap: 2px;
-        flex-shrink: 0;
+        gap: 3px;
       }
-      .hud-speed-display .unit {
+      .hud-speed-val {
+        font-family: forced_square, monospace;
+        font-size: 19px;
+        font-weight: 900;
+        line-height: 1;
+        color: #ffffff;
+        letter-spacing: 0.5px;
+        text-shadow: 0 0 10px var(--hud-glow, rgba(255, 255, 255, 0.3));
+      }
+      .hud-speed-unit {
         font-size: 9px;
-        font-weight: 700;
-        opacity: 0.85;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.7);
+        letter-spacing: 0.5px;
       }
-      .hud-bar-track {
+
+      /* Integrated Micro Gauge Tracks */
+      .hud-gauge-track {
         width: 100%;
-        height: 7px;
-        background: rgba(255, 255, 255, 0.10);
+        height: 4px;
+        background: rgba(0, 0, 0, 0.45);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 999px;
         overflow: hidden;
-        position: relative;
       }
-      .hud-bar-fill {
+      .hud-gauge-fill {
         height: 100%;
         border-radius: 999px;
         transition: width 0.08s linear;
