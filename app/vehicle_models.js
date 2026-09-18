@@ -2088,9 +2088,10 @@
         const p = state.position || { x: 0, y: 0, z: 0 };
         powerState.flightPos = { x: p.x, y: p.y, z: p.z };
         powerState.takeoffGroundY = p.y;
-        powerState.flightSpeed = Math.max(220, (state.speedKmh || 220));
+        powerState.flightSpeed = Math.min(270, Math.max(180, (state.speedKmh || 220)));
 
         // Capture initial launch heading from vehicle orientation
+        // In PolyTrack coordinates: forwardX = -2*(sq.x*sq.z + sq.w*sq.y), forwardZ = 1 - 2*(sq.x*sq.x + sq.y*sq.y)
         const sq = state.quaternion || { x: 0, y: 0, z: 0, w: 1 };
         const fx = 2 * (sq.x * sq.z + sq.w * sq.y);
         const fz = 1 - 2 * (sq.x * sq.x + sq.y * sq.y);
@@ -2182,15 +2183,15 @@
       if (powerState.flightBlend > 0.005) {
         // --- 1. INSTANTANEOUS 3D ORIENTATION TOWARDS MOUSE ---
         if (isFlying) {
-          // Virage en cap agile et rapide
+          // Virage en cap : souris à DROITE -> tourne à DROITE, souris à GAUCHE -> tourne à GAUCHE
           if (Math.abs(aimX) > 0.005) {
-            powerState.flightHeading += aimX * 4.6 * dt;
+            powerState.flightHeading -= aimX * 3.6 * dt;
           }
 
-          // Déflexion immédiate du nez vers le réticule
-          const targetYaw = aimX * 0.44;
-          const targetPitch = aimY * 0.48; // aimY < 0 (souris vers le HAUT) -> nez vers le haut !
-          const targetRoll = -aimX * 0.42;
+          // Déflexion immédiate du nez et roulis des ailes (gauche/droite corrigés)
+          const targetYaw = -aimX * 0.38;
+          const targetRoll = aimX * 0.36;
+          const targetPitch = aimY * 0.38; // aimY < 0 (souris vers le HAUT) -> nez vers le haut !
 
           const snapRate = Math.min(1.0, dt * 32.0);
           powerState.planeYaw += (targetYaw - powerState.planeYaw) * snapRate;
@@ -2226,33 +2227,33 @@
           } catch (e) {}
         }
 
-        // --- 2. 3D FLIGHT PROPULSION & AUTOMATIC ACCELERATION (VERS LE HAUT, BAS ET ETC) ---
+        // --- 2. 3D FLIGHT PROPULSION & AUTOMATIC ACCELERATION (MAX 300 KM/H) ---
         if (isFlying) {
-          // L'avion accélère tout seul jusqu'à 380 km/h !
-          powerState.flightSpeed = Math.min(380, (powerState.flightSpeed || 220) + 55 * dt);
+          // Vitesse modérée et contrôlable : accélération douce jusqu'à 300 km/h MAXIMUM
+          powerState.flightSpeed = Math.min(300, (powerState.flightSpeed || 220) + 25 * dt);
           state.speedKmh = powerState.flightSpeed;
 
-          const speedMps = powerState.flightSpeed / 3.6; // approx 60 à 105 m/s
+          const speedMps = powerState.flightSpeed / 3.6; // approx 60 à 83.3 m/s
 
-          // Vitesse verticale (Montée vers le HAUT, descente vers le BAS):
-          // aimY < 0 (souris vers le HAUT) -> montée puissante dans le ciel
-          // aimY > 0 (souris vers le BAS) -> descente en piqué vers la piste
-          // aimY == 0 -> vol parfaitement horizontal
+          // Vitesse verticale fluide et contrôlable :
+          // aimY < 0 (souris vers le HAUT) -> montée vers le ciel
+          // aimY > 0 (souris vers le BAS) -> descente vers la piste
+          // aimY == 0 -> vol en palier horizontal
           let Vy = 0;
           if (aimY < 0) {
             const climb = -aimY;
-            Vy = (14.0 + climb * 45.0) * powerState.flightBlend;
+            Vy = (6.0 + climb * 24.0) * powerState.flightBlend;
           } else if (aimY > 0) {
             const dive = aimY;
-            Vy = (-dive * 40.0) * powerState.flightBlend;
+            Vy = (-dive * 22.0) * powerState.flightBlend;
           } else {
-            Vy = 2.0 * powerState.flightBlend;
+            Vy = 1.0 * powerState.flightBlend;
           }
 
-          // Vitesse horizontale vers l'avant selon totalYaw
+          // Vitesse horizontale vers l'avant selon totalYaw (coordonnées PolyTrack)
           const pitchCos = Math.cos(powerState.planePitch);
-          const forwardSpeed = speedMps * Math.max(0.65, pitchCos) * powerState.flightBlend;
-          const Vx = Math.sin(totalYaw) * forwardSpeed;
+          const forwardSpeed = speedMps * Math.max(0.7, pitchCos) * powerState.flightBlend;
+          const Vx = -Math.sin(totalYaw) * forwardSpeed;
           const Vz = Math.cos(totalYaw) * forwardSpeed;
 
           if (!powerState.flightPos && state.position) {
