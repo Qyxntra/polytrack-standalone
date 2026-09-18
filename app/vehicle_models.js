@@ -153,6 +153,57 @@
         osc.stop(t + 0.18);
       } catch (e) {}
     },
+    turbo: {
+      osc: null,
+      gain: null,
+      isActive: false
+    },
+    startTurbo: function() {
+      try {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+        if (this.turbo.isActive) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(650, t);
+        osc.frequency.exponentialRampToValueAtTime(1400, t + 0.35);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.040, t + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        this.turbo = { osc, gain, isActive: true };
+      } catch (e) {}
+    },
+    updateTurbo: function(speedKmh) {
+      if (!this.turbo.isActive || !this.ctx) return;
+      try {
+        const t = this.ctx.currentTime;
+        const freq = 900 + Math.min(1200, (speedKmh || 200) * 3.5);
+        this.turbo.osc.frequency.setTargetAtTime(freq, t, 0.08);
+      } catch (e) {}
+    },
+    stopTurbo: function() {
+      if (!this.turbo.isActive || !this.ctx) return;
+      try {
+        const t = this.ctx.currentTime;
+        const tb = this.turbo;
+        this.turbo.isActive = false;
+        tb.gain.gain.linearRampToValueAtTime(0.001, t + 0.12);
+        setTimeout(() => {
+          try {
+            if (tb.osc) tb.osc.stop();
+            if (tb.osc) tb.osc.disconnect();
+            if (tb.gain) tb.gain.disconnect();
+          } catch (e) {}
+        }, 140);
+      } catch (e) {}
+    },
     playAfterburner: function() {
       try {
         this.init();
@@ -224,6 +275,241 @@
         gain.connect(this.ctx.destination);
         osc.start(t);
         osc.stop(t + 0.28);
+      } catch (e) {}
+    },
+    // Continuous Jet Turbine Synthesizer (Fighter Jet Engine Loop)
+    jet: {
+      whineOsc: null,
+      whineGain: null,
+      rumbleOsc: null,
+      rumbleFilter: null,
+      rumbleGain: null,
+      masterGain: null,
+      isActive: false
+    },
+    startJet: function(speedKmh) {
+      try {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+        if (this.jet.isActive) return;
+
+        const t = this.ctx.currentTime;
+        const master = this.ctx.createGain();
+        master.gain.setValueAtTime(0.001, t);
+        master.gain.linearRampToValueAtTime(0.08, t + 0.25);
+        master.connect(this.ctx.destination);
+
+        // 1. High-frequency turbine spool whine (sine)
+        const whine = this.ctx.createOscillator();
+        whine.type = 'sine';
+        const whineGain = this.ctx.createGain();
+        whineGain.gain.setValueAtTime(0.032, t);
+        whine.frequency.setValueAtTime(850, t);
+        whine.connect(whineGain);
+        whineGain.connect(master);
+        whine.start(t);
+
+        // 2. Combustion jet thrust rumble (sawtooth through lowpass filter)
+        const rumble = this.ctx.createOscillator();
+        rumble.type = 'sawtooth';
+        rumble.frequency.setValueAtTime(65, t);
+        const rumbleFilter = this.ctx.createBiquadFilter();
+        rumbleFilter.type = 'lowpass';
+        rumbleFilter.frequency.setValueAtTime(260, t);
+        rumbleFilter.Q.setValueAtTime(2.5, t);
+        const rumbleGain = this.ctx.createGain();
+        rumbleGain.gain.setValueAtTime(0.065, t);
+        rumble.connect(rumbleFilter);
+        rumbleFilter.connect(rumbleGain);
+        rumbleGain.connect(master);
+        rumble.start(t);
+
+        this.jet = {
+          whineOsc: whine,
+          whineGain: whineGain,
+          rumbleOsc: rumble,
+          rumbleFilter: rumbleFilter,
+          rumbleGain: rumbleGain,
+          masterGain: master,
+          isActive: true
+        };
+      } catch (e) {}
+    },
+    updateJet: function(speedKmh, isAfterburner, isAirbrake) {
+      if (!this.jet.isActive || !this.ctx) return;
+      try {
+        const t = this.ctx.currentTime;
+        const speed = Math.max(100, Math.min(350, speedKmh || 220));
+        const speedNorm = (speed - 100) / 250; // 0 to 1
+
+        let targetWhineFreq = 800 + speedNorm * 800; // 800Hz to 1600Hz
+        let targetRumbleCutoff = 220 + speedNorm * 320; // 220Hz to 540Hz
+        let targetMasterVol = 0.08 + speedNorm * 0.04;
+
+        if (isAfterburner) {
+          targetWhineFreq = 1900 + Math.random() * 90;
+          targetRumbleCutoff = 750;
+          targetMasterVol = 0.16;
+        } else if (isAirbrake) {
+          targetWhineFreq = 580;
+          targetRumbleCutoff = 180;
+          targetMasterVol = 0.055;
+        }
+
+        this.jet.whineOsc.frequency.setTargetAtTime(targetWhineFreq, t, 0.08);
+        this.jet.rumbleFilter.frequency.setTargetAtTime(targetRumbleCutoff, t, 0.08);
+        this.jet.masterGain.gain.setTargetAtTime(targetMasterVol, t, 0.08);
+      } catch (e) {}
+    },
+    stopJet: function() {
+      if (!this.jet.isActive || !this.ctx) return;
+      try {
+        const t = this.ctx.currentTime;
+        const j = this.jet;
+        this.jet.isActive = false;
+        if (j.masterGain) {
+          j.masterGain.gain.linearRampToValueAtTime(0.001, t + 0.20);
+        }
+        setTimeout(() => {
+          try {
+            if (j.whineOsc) j.whineOsc.stop();
+            if (j.rumbleOsc) j.rumbleOsc.stop();
+            if (j.whineOsc) j.whineOsc.disconnect();
+            if (j.rumbleOsc) j.rumbleOsc.disconnect();
+            if (j.masterGain) j.masterGain.disconnect();
+          } catch (e) {}
+        }, 220);
+      } catch (e) {}
+    },
+    playAfterburnerBoom: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(110, t);
+        osc.frequency.exponentialRampToValueAtTime(35, t + 0.18);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.18);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.18);
+      } catch (e) {}
+    },
+    playAirbrakeHiss: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(480, t);
+        osc.frequency.exponentialRampToValueAtTime(160, t + 0.22);
+        gain.gain.setValueAtTime(0.05, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.22);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.22);
+      } catch (e) {}
+    },
+    playTouchdown: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(2200, t);
+        osc.frequency.exponentialRampToValueAtTime(1200, t + 0.08);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.08);
+      } catch (e) {}
+    },
+    playKersSurge: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1100, t);
+        osc.frequency.exponentialRampToValueAtTime(2800, t + 0.26);
+        gain.gain.setValueAtTime(0.045, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.26);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.26);
+      } catch (e) {}
+    },
+    playAntiLagPop: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        [0, 0.07].forEach((offset, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = idx === 0 ? 'triangle' : 'sawtooth';
+          osc.frequency.setValueAtTime(160 - idx * 30, t + offset);
+          osc.frequency.exponentialRampToValueAtTime(32, t + offset + 0.05);
+          gain.gain.setValueAtTime(0.10, t + offset);
+          gain.gain.linearRampToValueAtTime(0.001, t + offset + 0.05);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t + offset);
+          osc.stop(t + offset + 0.05);
+        });
+      } catch (e) {}
+    },
+    playShockwaveImpact: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(95, t);
+        osc.frequency.exponentialRampToValueAtTime(20, t + 0.35);
+        gain.gain.setValueAtTime(0.15, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.35);
+      } catch (e) {}
+    },
+    playFuelReadyBeep: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(880, t);
+        osc.frequency.setValueAtTime(1320, t + 0.07);
+        gain.gain.setValueAtTime(0.05, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.15);
       } catch (e) {}
     }
   };
@@ -1147,6 +1433,116 @@
     }
   }
 
+  // --- 4.8 3D AERODYNAMIC WINGTIP VORTEX VAPOR TRAILS (AVION) ---
+  function buildPlaneVortexTrailsGeometry(THREE, B) {
+    const b = createSolidBuilder(THREE, B);
+    // Twin sleek ribbon streams extending backward from each wingtip EW pod
+    // Left wingtip: X = -2.15, Y = 0.12, Z from -0.65 to -3.20
+    b.addBox(-2.17, 0.10, -3.20, -2.13, 0.14, -0.65, 2);
+    // Right wingtip: X = +2.15, Y = 0.12, Z from -0.65 to -3.20
+    b.addBox(2.13, 0.10, -3.20, 2.17, 0.14, -0.65, 2);
+    return b.build();
+  }
+
+  function ensurePlaneVortexTrails(carInstance, l, be, THREE, B) {
+    if (!carInstance || !be) return null;
+    try {
+      const chassisMesh = (0, l.gn)(carInstance, be, "f");
+      if (!chassisMesh) return null;
+
+      if (carInstance._planeVortexTrails && carInstance._planeVortexTrails.parent === chassisMesh) {
+        return carInstance._planeVortexTrails;
+      }
+
+      if (carInstance._planeVortexTrails && carInstance._planeVortexTrails.parent) {
+        try { carInstance._planeVortexTrails.parent.remove(carInstance._planeVortexTrails); } catch (e) {}
+      }
+
+      const geom = buildPlaneVortexTrailsGeometry(THREE, B);
+      if (!geom) return null;
+
+      const vaporMats = getFlameMaterials(chassisMesh, '#e0f2fe');
+      for (let i = 0; i < vaporMats.length; i++) {
+        if (vaporMats[i]) {
+          vaporMats[i].transparent = true;
+          vaporMats[i].opacity = 0.82;
+        }
+      }
+      const MeshClass = (THREE && (THREE.Mesh || THREE.vY)) || (chassisMesh && chassisMesh.constructor);
+      const vaporMesh = new MeshClass(geom, vaporMats);
+      vaporMesh.name = 'Plane_Vortex_Trails';
+      vaporMesh.position.set(0, 0, 0);
+      vaporMesh.visible = false;
+
+      chassisMesh.add(vaporMesh);
+      carInstance._planeVortexTrails = vaporMesh;
+      return vaporMesh;
+    } catch (e) {
+      console.warn('[PolyTrack] Error in ensurePlaneVortexTrails:', e);
+      return null;
+    }
+  }
+
+  // --- 4.9 3D GROUND IMPACT SHOCKWAVE RING (CAMIONNETTE) ---
+  function buildShockwaveGeometry(THREE, B) {
+    const b = createSolidBuilder(THREE, B);
+    const rOuter = 2.4, rInner = 1.8;
+    for (let i = 0; i < 8; i++) {
+      const a1 = (i / 8) * Math.PI * 2;
+      const a2 = ((i + 1) / 8) * Math.PI * 2;
+      const x1 = Math.cos(a1) * rOuter, z1 = Math.sin(a1) * rOuter;
+      const x2 = Math.cos(a2) * rOuter, z2 = Math.sin(a2) * rOuter;
+      const x3 = Math.cos(a2) * rInner, z3 = Math.sin(a2) * rInner;
+      const x4 = Math.cos(a1) * rInner, z4 = Math.sin(a1) * rInner;
+      b.addQuad([
+        [x1, 0.03, z1],
+        [x2, 0.03, z2],
+        [x3, 0.03, z3],
+        [x4, 0.03, z4]
+      ], 3);
+    }
+    return b.build();
+  }
+
+  function ensureCamionnetteShockwave(carInstance, l, be, THREE, B) {
+    if (!carInstance || !be) return null;
+    try {
+      const chassisMesh = (0, l.gn)(carInstance, be, "f");
+      if (!chassisMesh) return null;
+
+      if (carInstance._shockwaveMesh && carInstance._shockwaveMesh.parent === chassisMesh) {
+        return carInstance._shockwaveMesh;
+      }
+
+      if (carInstance._shockwaveMesh && carInstance._shockwaveMesh.parent) {
+        try { carInstance._shockwaveMesh.parent.remove(carInstance._shockwaveMesh); } catch (e) {}
+      }
+
+      const geom = buildShockwaveGeometry(THREE, B);
+      if (!geom) return null;
+
+      const shockMats = getFlameMaterials(chassisMesh, '#f59e0b');
+      for (let i = 0; i < shockMats.length; i++) {
+        if (shockMats[i]) {
+          shockMats[i].transparent = true;
+          shockMats[i].opacity = 0.9;
+        }
+      }
+      const MeshClass = (THREE && (THREE.Mesh || THREE.vY)) || (chassisMesh && chassisMesh.constructor);
+      const shockMesh = new MeshClass(geom, shockMats);
+      shockMesh.name = 'Camionnette_Shockwave';
+      shockMesh.position.set(0, -0.60, 0);
+      shockMesh.visible = false;
+
+      chassisMesh.add(shockMesh);
+      carInstance._shockwaveMesh = shockMesh;
+      return shockMesh;
+    } catch (e) {
+      console.warn('[PolyTrack] Error in ensureCamionnetteShockwave:', e);
+      return null;
+    }
+  }
+
   function applyExhaustTransform(exhaustMesh, vType) {
     if (!exhaustMesh) return;
     vType = vType || window._selectedVehicleType || getSelectedVehicleType();
@@ -1455,6 +1851,12 @@
     shiftKeyHeld: false,
     spaceKeyHeld: false,
     drsKeyHeld: false,
+    sKeyHeld: false,
+    wKeyHeld: false,
+    isAfterburner: false,
+    wasAfterburner: false,
+    isAirbrake: false,
+    wasAirbrake: false,
 
     // DRS (Formule 1)
     drsFlapAngle: 0,
@@ -1476,11 +1878,14 @@
     maxRamEnergy: 100,
     slamCharged: false,
     slamTriggered: false,
+    shockwaveScale: 0.5,
 
     // Flight & Aerodynamic Jet Glider (Avion)
     isFlying: false,
     wasFlying: false,
     isFalling: false,
+    wasFalling: false,
+    wasRechargingFuel: false,
     fallVy: 0,
     flightBlend: 0,
     flightFuel: 100,
@@ -1558,6 +1963,12 @@
       powerState.shiftKeyHeld = true;
       powerState.drsKeyHeld = true;
     }
+    if (e.code === 'KeyS' || e.code === 'ArrowDown') {
+      powerState.sKeyHeld = true;
+    }
+    if (e.code === 'KeyW' || e.code === 'ArrowUp') {
+      powerState.wKeyHeld = true;
+    }
   });
   window.addEventListener('keyup', e => {
     if (e.code === 'Space') {
@@ -1567,11 +1978,19 @@
       powerState.shiftKeyHeld = false;
       powerState.drsKeyHeld = false;
     }
+    if (e.code === 'KeyS' || e.code === 'ArrowDown') {
+      powerState.sKeyHeld = false;
+    }
+    if (e.code === 'KeyW' || e.code === 'ArrowUp') {
+      powerState.wKeyHeld = false;
+    }
   });
   window.addEventListener('blur', () => {
     powerState.spaceKeyHeld = false;
     powerState.shiftKeyHeld = false;
     powerState.drsKeyHeld = false;
+    powerState.sKeyHeld = false;
+    powerState.wKeyHeld = false;
     powerState.mouseLeftClick = false;
     powerState.mouseRightClick = false;
     powerState.mouseAimX = 0;
@@ -1672,8 +2091,8 @@
       el.id = 'polytrack-flight-crosshair';
       el.style.cssText = `
         position: fixed;
-        width: 52px;
-        height: 52px;
+        width: 170px;
+        height: 110px;
         top: 50%;
         left: 50%;
         pointer-events: none;
@@ -1682,19 +2101,74 @@
         transition: opacity 0.15s ease;
         opacity: 0;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         will-change: left, top;
+        user-select: none;
       `;
       el.innerHTML = `
-        <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="26" cy="26" r="16" stroke="rgba(192, 132, 252, 0.9)" stroke-width="2" stroke-dasharray="5 3"/>
-          <circle cx="26" cy="26" r="3.5" fill="#a855f7"/>
-          <line x1="2" y1="26" x2="12" y2="26" stroke="#f3e8ff" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="40" y1="26" x2="50" y2="26" stroke="#f3e8ff" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="26" y1="2" x2="26" y2="12" stroke="#f3e8ff" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="26" y1="40" x2="26" y2="50" stroke="#f3e8ff" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
+        <div class="hud-mode-badge" style="
+          font-family: monospace, sans-serif;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 1px;
+          padding: 2px 7px;
+          border-radius: 4px;
+          background: rgba(0, 0, 0, 0.70);
+          border: 1px solid #c084fc;
+          color: #c084fc;
+          margin-bottom: 3px;
+          text-shadow: 0 0 6px rgba(192, 132, 252, 0.6);
+          white-space: nowrap;
+        ">✈️ CRUISE</div>
+
+        <div style="position: relative; width: 140px; height: 60px; display: flex; align-items: center; justify-content: center;">
+          <svg class="hud-svg" width="140" height="60" viewBox="0 0 140 60" fill="none" style="overflow: visible;">
+            <!-- Outer Reticle & Center Pip -->
+            <circle cx="70" cy="30" r="16" stroke="rgba(192, 132, 252, 0.6)" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <circle cx="70" cy="30" r="3.5" fill="#c084fc"/>
+            <line x1="70" y1="10" x2="70" y2="18" stroke="#f3e8ff" stroke-width="2" stroke-linecap="round"/>
+            <line x1="70" y1="42" x2="70" y2="50" stroke="#f3e8ff" stroke-width="2" stroke-linecap="round"/>
+
+            <!-- Rotating Artificial Horizon Pitch Ladder Wings -->
+            <g class="hud-horizon-wings" style="transform-origin: 70px 30px;">
+              <line x1="12" y1="30" x2="48" y2="30" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+              <polyline points="48,30 55,36" stroke="#38bdf8" stroke-width="2" fill="none"/>
+              <line x1="92" y1="30" x2="128" y2="30" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round"/>
+              <polyline points="92,30 85,36" stroke="#38bdf8" stroke-width="2" fill="none"/>
+            </g>
+          </svg>
+
+          <!-- Digital Speed Readout Badge on the Right -->
+          <div class="hud-speed-badge" style="
+            position: absolute;
+            right: -24px;
+            top: 20px;
+            font-family: monospace, sans-serif;
+            font-size: 10px;
+            font-weight: 800;
+            color: #f8fafc;
+            background: rgba(0, 0, 0, 0.65);
+            padding: 2px 5px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            white-space: nowrap;
+          ">220 KM/H</div>
+        </div>
+
+        <div class="hud-hints" style="
+          font-family: monospace, sans-serif;
+          font-size: 9px;
+          font-weight: 700;
+          color: rgba(248, 250, 252, 0.75);
+          background: rgba(0, 0, 0, 0.55);
+          padding: 1px 6px;
+          border-radius: 3px;
+          margin-top: 3px;
+          letter-spacing: 0.5px;
+          white-space: nowrap;
+        ">[SHIFT] BOOST • [S] FREIN</div>
       `;
       document.body.appendChild(el);
       powerState.crosshairEl = el;
@@ -1731,6 +2205,88 @@
       drsBox.className = 'box polytrack-drs-box ready';
     } else {
       drsBox.className = 'box polytrack-drs-box disabled';
+    }
+
+    // Shift-lights LED bar for Formula 1
+    let shiftLightsEl = drsBox.querySelector('.f1-shift-lights');
+    if (opts.shiftLights) {
+      if (!shiftLightsEl) {
+        shiftLightsEl = document.createElement('div');
+        shiftLightsEl.className = 'f1-shift-lights';
+        shiftLightsEl.style.cssText = `
+          position: absolute;
+          top: -12px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          gap: 3px;
+          padding: 2px 5px;
+          background: rgba(0, 0, 0, 0.80);
+          border-radius: 5px;
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          pointer-events: none;
+        `;
+        for (let i = 0; i < 5; i++) {
+          const dot = document.createElement('span');
+          dot.className = 'shift-dot dot-' + i;
+          dot.style.cssText = `
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #27272a;
+            transition: background 0.08s ease;
+          `;
+          shiftLightsEl.appendChild(dot);
+        }
+        drsBox.appendChild(shiftLightsEl);
+      }
+      shiftLightsEl.style.display = 'flex';
+      const spd = opts.speed || 0;
+      const dots = shiftLightsEl.querySelectorAll('.shift-dot');
+      const colors = ['#22c55e', '#22c55e', '#eab308', '#ef4444', '#38bdf8'];
+      dots.forEach((dot, idx) => {
+        const threshold = 130 + idx * 42;
+        if (opts.isActive) {
+          dot.style.background = '#38bdf8';
+          dot.style.boxShadow = '0 0 6px #38bdf8';
+        } else if (spd >= threshold) {
+          dot.style.background = colors[idx];
+          dot.style.boxShadow = `0 0 5px ${colors[idx]}`;
+        } else {
+          dot.style.background = '#27272a';
+          dot.style.boxShadow = 'none';
+        }
+      });
+    } else if (shiftLightsEl) {
+      shiftLightsEl.style.display = 'none';
+    }
+
+    // Drift recharge badge for GT Voiture
+    let driftBadge = drsBox.querySelector('.gt-drift-badge');
+    if (opts.driftBonus) {
+      if (!driftBadge) {
+        driftBadge = document.createElement('div');
+        driftBadge.className = 'gt-drift-badge';
+        driftBadge.style.cssText = `
+          position: absolute;
+          top: -14px;
+          right: 0;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+          color: #00e5ff;
+          background: rgba(0, 0, 0, 0.85);
+          padding: 1px 5px;
+          border-radius: 4px;
+          border: 1px solid #00e5ff;
+          pointer-events: none;
+        `;
+        driftBadge.textContent = 'DRIFT x2.5';
+        drsBox.appendChild(driftBadge);
+      }
+      driftBadge.style.display = 'block';
+    } else if (driftBadge) {
+      driftBadge.style.display = 'none';
     }
   }
 
@@ -1858,6 +2414,12 @@
     if (vType !== 'avion' && carInstance._planeJetFlames) {
       carInstance._planeJetFlames.visible = false;
     }
+    if (vType !== 'avion' && carInstance._planeVortexTrails) {
+      carInstance._planeVortexTrails.visible = false;
+    }
+    if (vType !== 'camionnette' && carInstance._shockwaveMesh) {
+      carInstance._shockwaveMesh.visible = false;
+    }
 
     // --- 1. FORMULE 1: DRS (Drag Reduction System) + KERS HYBRID SURGE ---
     if (vType === 'f1') {
@@ -1869,9 +2431,10 @@
       const canDrs = powerState.drsEnergy > 2;
       const isDrsActive = wantsDrs && isMovingForward && canDrs;
 
-      // Sound feedback on state transition
+      // Sound feedback on state transition: DRS open + KERS hybrid electric surge
       if (isDrsActive && !powerState.wasDrsActive) {
         AudioFX.playDrsOpen();
+        AudioFX.playKersSurge();
       } else if (!isDrsActive && powerState.wasDrsActive) {
         AudioFX.playDrsClose();
       }
@@ -1889,17 +2452,17 @@
         // Drain DRS energy at ~18%/sec (gives ~5.5s of continuous DRS)
         powerState.drsEnergy = Math.max(0, powerState.drsEnergy - 18 * dt);
 
-        const accelBoost = controls.up ? 38 : 16;
-        state.speedKmh = Math.min(340, state.speedKmh + accelBoost * dt);
+        const accelBoost = controls.up ? 42 : 18;
+        state.speedKmh = Math.min(345, state.speedKmh + accelBoost * dt);
 
         // Forward aerodynamic thrust vector
         if (state.position) {
           const q = state.quaternion || { y: 0, w: 1 };
           const forwardX = -2 * (q.x * q.z + q.w * q.y);
           const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
-          const aeroFactor = Math.min(1.3, Math.max(0.35, state.speedKmh / 130));
-          state.position.x += forwardX * (9.5 * aeroFactor) * dt;
-          state.position.z += forwardZ * (9.5 * aeroFactor) * dt;
+          const aeroFactor = Math.min(1.35, Math.max(0.35, state.speedKmh / 130));
+          state.position.x += forwardX * (9.8 * aeroFactor) * dt;
+          state.position.z += forwardZ * (9.8 * aeroFactor) * dt;
         }
 
         // Screen aerodynamic speed lines FX
@@ -1920,12 +2483,14 @@
       }
 
       renderTelemetryHUD({
-        label: 'DRS',
+        label: isDrsActive ? 'DRS+KERS' : 'DRS',
         percent: powerState.drsEnergy,
         isReady: isMovingForward && powerState.drsEnergy > 5,
         isActive: isDrsActive,
-        glowColor: 'rgba(34, 197, 94, 0.9)',
-        bgColor: 'rgba(21, 128, 61, 0.95)'
+        glowColor: isDrsActive ? 'rgba(56, 189, 248, 0.95)' : 'rgba(34, 197, 94, 0.9)',
+        bgColor: isDrsActive ? 'rgba(14, 116, 144, 0.95)' : 'rgba(21, 128, 61, 0.95)',
+        shiftLights: true,
+        speed: state.speedKmh
       });
     }
 
@@ -1936,9 +2501,12 @@
       const isNitroActive = wantsNitro && powerState.nitroFuel > 2;
 
       if (isNitroActive && !powerState.wasNitroBoosting) {
+        AudioFX.startTurbo();
         AudioFX.playTurboSpool();
       } else if (!isNitroActive && powerState.wasNitroBoosting) {
+        AudioFX.stopTurbo();
         AudioFX.playTurboBlowoff();
+        AudioFX.playAntiLagPop();
       }
       powerState.wasNitroBoosting = isNitroActive;
       powerState.isNitroBoosting = isNitroActive;
@@ -1952,7 +2520,10 @@
         }
       }
 
+      const isDrifting = Math.abs(state.angularVelocity ? state.angularVelocity.y : 0) > 0.85;
+
       if (isNitroActive) {
+        AudioFX.updateTurbo(state.speedKmh);
         // Nitro fuel drains at 25%/sec (~4 seconds of boost)
         powerState.nitroFuel = Math.max(0, powerState.nitroFuel - 25 * dt);
         state.speedKmh = Math.min(330, state.speedKmh + 45 * dt);
@@ -1971,7 +2542,6 @@
         }
       } else {
         // Regenerates at 22%/sec (or 55%/sec when drifting!)
-        const isDrifting = Math.abs(state.angularVelocity ? state.angularVelocity.y : 0) > 0.9;
         const rechargeRate = isDrifting ? 55 : 22;
         powerState.nitroFuel = Math.min(powerState.maxNitro, powerState.nitroFuel + rechargeRate * dt);
         if (powerState.fxOverlayEl) {
@@ -1980,17 +2550,19 @@
       }
 
       renderTelemetryHUD({
-        label: 'BOOST',
+        label: isDrifting ? 'DRIFT x2.5' : 'BOOST',
         percent: powerState.nitroFuel,
         isReady: powerState.nitroFuel > 5,
         isActive: isNitroActive,
         glowColor: 'rgba(0, 229, 255, 0.9)',
-        bgColor: 'rgba(8, 145, 178, 0.95)'
+        bgColor: 'rgba(8, 145, 178, 0.95)',
+        driftBonus: isDrifting
       });
     }
 
     // --- 3. CAMIONNETTE: BÉLIER CINÉTIQUE & SUPER GROUND SLAM ---
     else if (vType === 'camionnette') {
+      const shockwave = ensureCamionnetteShockwave(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
       const wantsRam = powerState.shiftKeyHeld;
       const isRamActive = wantsRam && powerState.ramEnergy > 2;
 
@@ -2037,21 +2609,39 @@
       } else {
         if (powerState.slamCharged) {
           powerState.slamCharged = false;
-          state.speedKmh = Math.min(290, state.speedKmh + 28);
+          state.speedKmh = Math.min(295, state.speedKmh + 32);
           AudioFX.playGroundSlam();
+          AudioFX.playShockwaveImpact();
           powerState.slamTriggered = true;
-          if (powerState.fxOverlayEl) {
-            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 55%, rgba(245, 158, 11, 0.45) 100%)';
-            powerState.fxOverlayEl.style.opacity = '1';
-            setTimeout(() => { if (powerState.fxOverlayEl && !powerState.isRamming) powerState.fxOverlayEl.style.opacity = '0'; }, 320);
+          powerState.shockwaveScale = 0.5;
+          if (shockwave) {
+            shockwave.visible = true;
+            shockwave.scale.set(0.5, 1.0, 0.5);
           }
-          setTimeout(() => { powerState.slamTriggered = false; }, 1400);
+          if (powerState.fxOverlayEl) {
+            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 50%, rgba(245, 158, 11, 0.48) 100%)';
+            powerState.fxOverlayEl.style.opacity = '1';
+            setTimeout(() => { if (powerState.fxOverlayEl && !powerState.isRamming) powerState.fxOverlayEl.style.opacity = '0'; }, 340);
+          }
+          setTimeout(() => {
+            powerState.slamTriggered = false;
+            if (shockwave) shockwave.visible = false;
+          }, 600);
         }
         powerState.airborneFrames = 0;
       }
 
+      // Animate expanding 3D shockwave ring
+      if (powerState.slamTriggered && shockwave) {
+        powerState.shockwaveScale = (powerState.shockwaveScale || 0.5) + dt * 5.0;
+        shockwave.scale.set(powerState.shockwaveScale, 1.0, powerState.shockwaveScale);
+        if (powerState.shockwaveScale > 2.6) {
+          shockwave.visible = false;
+        }
+      }
+
       renderTelemetryHUD({
-        label: powerState.slamCharged ? 'SLAM' : 'BOOST',
+        label: powerState.slamCharged ? 'SLAM READY' : (powerState.slamTriggered ? 'IMPACT !' : 'BOOST'),
         percent: powerState.ramEnergy,
         isReady: powerState.ramEnergy > 5 || powerState.slamCharged,
         isActive: isRamActive || powerState.slamTriggered,
@@ -2063,6 +2653,7 @@
     // --- 4. AVION: VOL AÉRODYNAMIQUE 3D COMPLET & CHUTE LIBRE NATURELLE (PAS D'ATTERRISSAGE FORCÉ) ---
     else if (vType === 'avion') {
       const jetFlames = ensurePlaneJetFlames(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
+      const vortexTrails = ensurePlaneVortexTrails(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
       const inputCtrl = ne ? (0, l.gn)(carInstance, ne, "f") : null;
 
       // Détection contact sol réel
@@ -2090,6 +2681,12 @@
         } else if (powerState.flightFuel < powerState.maxFlightFuel) {
           // Recharge douce et progressive (~12.5%/s -> ~8s pour une jauge pleine)
           powerState.flightFuel = Math.min(powerState.maxFlightFuel, powerState.flightFuel + 12.5 * dt);
+          if (powerState.flightFuel >= 100 && powerState.wasRechargingFuel) {
+            AudioFX.playFuelReadyBeep();
+            powerState.wasRechargingFuel = false;
+          } else if (powerState.flightFuel < 100) {
+            powerState.wasRechargingFuel = true;
+          }
         }
       }
 
@@ -2109,7 +2706,6 @@
         powerState.fallVy = 0;
 
         // Capture initial launch heading from vehicle orientation
-        // In PolyTrack coordinates: forwardX = -2*(sq.x*sq.z + sq.w*sq.y), forwardZ = 1 - 2*(sq.x*sq.x + sq.y*sq.y)
         const sq = state.quaternion || { x: 0, y: 0, z: 0, w: 1 };
         const fx = 2 * (sq.x * sq.z + sq.w * sq.y);
         const fz = 1 - 2 * (sq.x * sq.x + sq.y * sq.y);
@@ -2117,7 +2713,9 @@
         powerState.planePitch = 0;
         powerState.planeRoll = 0;
         powerState.planeYaw = 0;
-        AudioFX.playGliderGlide();
+        
+        AudioFX.startJet(powerState.flightSpeed);
+        AudioFX.playAfterburnerBoom();
       }
 
       // Normalized mouse offset with ultra-tight deadzone for instant response and center stability
@@ -2134,8 +2732,26 @@
       // --- CAS 1 : VOL ACTIF PROPULSÉ (isFlying) ---
       if (powerState.isFlying) {
         powerState.flightTime += dt;
-        // Carburant consommé sur ~6.5 secondes de vol actif
-        powerState.flightFuel = Math.max(0, powerState.flightFuel - 15.5 * dt);
+
+        // Interactive Flight Modes: Afterburner & Airbrake
+        const wantsAfterburner = (powerState.shiftKeyHeld || powerState.spaceKeyHeld || powerState.mouseLeftClick) && powerState.flightFuel > 2;
+        const wantsAirbrake = (powerState.sKeyHeld || powerState.mouseRightClick) && !wantsAfterburner;
+
+        if (wantsAfterburner && !powerState.wasAfterburner) {
+          AudioFX.playAfterburnerBoom();
+        }
+        if (wantsAirbrake && !powerState.wasAirbrake) {
+          AudioFX.playAirbrakeHiss();
+        }
+        powerState.wasAfterburner = wantsAfterburner;
+        powerState.wasAirbrake = wantsAirbrake;
+        powerState.isAfterburner = wantsAfterburner;
+        powerState.isAirbrake = wantsAirbrake;
+
+        // Dynamic Fuel Consumption rate:
+        // Afterburner consumes ~24%/s, Airbrake saves fuel at ~7.5%/s, Cruise consumes ~15%/s
+        const fuelDrainRate = wantsAfterburner ? 24.0 : (wantsAirbrake ? 7.5 : 15.0);
+        powerState.flightFuel = Math.max(0, powerState.flightFuel - fuelDrainRate * dt);
 
         document.body.classList.add('polytrack-flying');
 
@@ -2149,10 +2765,10 @@
 
         // 1. Déflexion du cap et attitude selon la souris
         if (Math.abs(aimX) > 0.005) {
-          powerState.flightHeading -= aimX * 3.6 * dt;
+          powerState.flightHeading -= aimX * (wantsAirbrake ? 4.2 : 3.6) * dt;
         }
         const targetYaw = -aimX * 0.38;
-        const targetRoll = aimX * 0.36;
+        const targetRoll = aimX * 0.38;
         const targetPitch = aimY * 0.38;
 
         const snapRate = Math.min(1.0, dt * 32.0);
@@ -2174,20 +2790,30 @@
           } catch (e) {}
         }
 
-        // 2. Propulsion automatique et vitesse 3D (max 300 km/h)
-        powerState.flightSpeed = Math.min(300, (powerState.flightSpeed || 220) + 25 * dt);
+        // 2. Vitesse et propulsion : Afterburner (jusqu'à 330 km/h) / Airbrake (160 km/h) / Cruise (285 km/h)
+        if (wantsAfterburner) {
+          powerState.flightSpeed = Math.min(330, (powerState.flightSpeed || 220) + 52 * dt);
+        } else if (wantsAirbrake) {
+          powerState.flightSpeed = Math.max(160, (powerState.flightSpeed || 220) - 75 * dt);
+        } else {
+          powerState.flightSpeed = Math.min(285, (powerState.flightSpeed || 220) + 24 * dt);
+        }
         state.speedKmh = powerState.flightSpeed;
         const speedMps = powerState.flightSpeed / 3.6;
 
+        // Modulation de la boucle sonore continue de turbine
+        AudioFX.updateJet(powerState.flightSpeed, wantsAfterburner, wantsAirbrake);
+
+        // Vitesse verticale (Vy)
         let Vy = 0;
         if (aimY < 0) {
           const climb = -aimY;
-          Vy = 6.0 + climb * 24.0;
+          Vy = 6.0 + climb * (wantsAfterburner ? 32.0 : 24.0);
         } else if (aimY > 0) {
           const dive = aimY;
-          Vy = -dive * 22.0;
+          Vy = -dive * (wantsAirbrake ? 16.0 : 26.0);
         } else {
-          Vy = 1.0;
+          Vy = wantsAirbrake ? -0.5 : 1.0;
         }
 
         const pitchCos = Math.cos(powerState.planePitch);
@@ -2215,9 +2841,42 @@
           }
         }
 
+        // 3. Effets Visuels : Screen FX Overlay
         if (powerState.fxOverlayEl) {
-          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 68%, rgba(168, 85, 247, 0.18) 90%, rgba(192, 132, 252, 0.32) 100%)';
-          powerState.fxOverlayEl.style.opacity = '1';
+          if (wantsAfterburner) {
+            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 58%, rgba(244, 63, 94, 0.22) 85%, rgba(192, 132, 252, 0.40) 100%)';
+            powerState.fxOverlayEl.style.opacity = '1';
+          } else if (wantsAirbrake) {
+            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(56, 189, 248, 0.20) 95%)';
+            powerState.fxOverlayEl.style.opacity = '1';
+          } else {
+            powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 68%, rgba(168, 85, 247, 0.16) 90%, rgba(192, 132, 252, 0.28) 100%)';
+            powerState.fxOverlayEl.style.opacity = '1';
+          }
+        }
+
+        // 4. 3D Jet Flames Modulation
+        if (jetFlames) {
+          jetFlames.visible = true;
+          if (wantsAfterburner) {
+            const j = 1.35 + Math.random() * 0.35;
+            jetFlames.scale.set(j, j, 1.6 + Math.random() * 0.4);
+          } else if (wantsAirbrake) {
+            const j = 0.45 + Math.random() * 0.15;
+            jetFlames.scale.set(j, j, 0.55);
+          } else {
+            const j = 0.85 + Math.random() * 0.25;
+            jetFlames.scale.set(j, j, 1.05 + Math.random() * 0.3);
+          }
+        }
+
+        // 5. 3D Wingtip Vortex Vapor Trails
+        const isHighG = Math.abs(aimX) > 0.32 || wantsAfterburner || wantsAirbrake;
+        if (vortexTrails) {
+          vortexTrails.visible = isHighG;
+          if (isHighG) {
+            vortexTrails.scale.set(1.0, 1.0, 0.85 + Math.random() * 0.3);
+          }
         }
 
         // Fin du vol propulsé :
@@ -2227,6 +2886,9 @@
           powerState.isFalling = true; // Déclenche la chute libre sous gravité
           powerState.fallVy = Vy;
           powerState.flightFuelCooldown = 2.5; // Cooldown de 2.5s après la fin du vol
+          AudioFX.stopJet();
+          if (jetFlames) jetFlames.visible = false;
+          if (vortexTrails) vortexTrails.visible = false;
         }
         // 2. Vol en piqué vers la piste qui atteint le sol réel
         else if (powerState.flightTime > 0.5 && powerState.flightPos && powerState.flightPos.y <= (powerState.takeoffGroundY + 0.4) && (isGrounded || powerState.flightPos.y <= powerState.takeoffGroundY)) {
@@ -2234,6 +2896,10 @@
           powerState.isFalling = false;
           powerState.flightPos = null;
           powerState.flightFuelCooldown = 2.0;
+          AudioFX.stopJet();
+          AudioFX.playTouchdown();
+          if (jetFlames) jetFlames.visible = false;
+          if (vortexTrails) vortexTrails.visible = false;
         }
       }
 
@@ -2241,6 +2907,9 @@
       else if (powerState.isFalling && powerState.flightPos) {
         document.body.classList.remove('polytrack-flying');
         if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
+        if (jetFlames) jetFlames.visible = false;
+        if (vortexTrails) vortexTrails.visible = false;
+        AudioFX.stopJet();
 
         // Gravité accélérant la chute vers le bas
         powerState.fallVy = (powerState.fallVy || 0) - 26.0 * dt;
@@ -2291,6 +2960,7 @@
           powerState.isFalling = false;
           powerState.flightPos = null;
           powerState.flightFuelCooldown = 2.5; // Cooldown de 2.5s avant de démarrer la recharge
+          AudioFX.playTouchdown();
         }
       }
 
@@ -2298,50 +2968,84 @@
       else {
         document.body.classList.remove('polytrack-flying');
         if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
+        if (jetFlames) jetFlames.visible = false;
+        if (vortexTrails) vortexTrails.visible = false;
+        AudioFX.stopJet();
         powerState.flightPos = null;
         powerState.isFalling = false;
         powerState.isFlying = false;
+        powerState.isAfterburner = false;
+        powerState.isAirbrake = false;
         powerState.planePitch = 0;
         powerState.planeRoll = 0;
         powerState.planeYaw = 0;
       }
 
-      // Viseur HUD : visible UNIQUEMENT pendant le vol actif propulsé
+      // Viseur HUD Cockpit de chasse : visible UNIQUEMENT pendant le vol actif propulsé
       const crosshair = ensureFlightCrosshair();
       if (crosshair) {
         const crosshairOpacity = powerState.isFlying ? 1 : 0;
         crosshair.style.opacity = String(crosshairOpacity);
-        crosshair.style.left = powerState.mouseX + 'px';
-        crosshair.style.top = powerState.mouseY + 'px';
-      }
-
-      // Flammes réacteurs 3D : visibles UNIQUEMENT en vol actif propulsé
-      if (jetFlames) {
-        jetFlames.visible = powerState.isFlying;
         if (powerState.isFlying) {
-          const jitter = 0.85 + Math.random() * 0.3;
-          jetFlames.scale.set(jitter, jitter, 1.05 + Math.random() * 0.4);
+          crosshair.style.left = powerState.mouseX + 'px';
+          crosshair.style.top = powerState.mouseY + 'px';
+
+          // Orientation des ailes d'horizon artificiel selon le roulis de l'avion
+          const wingsEl = crosshair.querySelector('.hud-horizon-wings');
+          if (wingsEl) {
+            const rollDeg = (-(powerState.planeRoll || 0) * (180 / Math.PI)).toFixed(1);
+            wingsEl.setAttribute('transform', `rotate(${rollDeg} 70 30)`);
+          }
+
+          // Badge de vitesse numérique
+          const speedEl = crosshair.querySelector('.hud-speed-badge');
+          if (speedEl) {
+            speedEl.textContent = Math.round(powerState.flightSpeed || 220) + ' KM/H';
+          }
+
+          // Badge de mode interactif
+          const modeEl = crosshair.querySelector('.hud-mode-badge');
+          if (modeEl) {
+            if (powerState.isAfterburner) {
+              modeEl.textContent = '🔥 AFTERBURNER';
+              modeEl.style.color = '#f43f5e';
+              modeEl.style.borderColor = '#f43f5e';
+              modeEl.style.textShadow = '0 0 8px rgba(244, 63, 94, 0.85)';
+            } else if (powerState.isAirbrake) {
+              modeEl.textContent = '🛑 AIRBRAKE';
+              modeEl.style.color = '#38bdf8';
+              modeEl.style.borderColor = '#38bdf8';
+              modeEl.style.textShadow = '0 0 8px rgba(56, 189, 248, 0.85)';
+            } else {
+              modeEl.textContent = '✈️ CRUISE';
+              modeEl.style.color = '#c084fc';
+              modeEl.style.borderColor = '#c084fc';
+              modeEl.style.textShadow = '0 0 8px rgba(192, 132, 252, 0.6)';
+            }
+          }
         }
       }
 
       // HUD télémétrie FLIGHT
       const isCoolingDown = onRealGround && powerState.flightFuelCooldown > 0;
       renderTelemetryHUD({
-        label: isCoolingDown ? 'COOLDOWN' : 'FLIGHT',
+        label: isCoolingDown ? 'COOLDOWN' : (powerState.isAfterburner ? 'BURNER' : (powerState.isAirbrake ? 'AIRBRAKE' : 'FLIGHT')),
         percent: powerState.flightFuel,
         isReady: powerState.flightFuel >= 15,
         isActive: powerState.isFlying,
         glowColor: powerState.isFlying 
-          ? 'rgba(168, 85, 247, 0.95)' 
+          ? (powerState.isAfterburner ? 'rgba(244, 63, 94, 0.95)' : (powerState.isAirbrake ? 'rgba(56, 189, 248, 0.95)' : 'rgba(168, 85, 247, 0.95)'))
           : (powerState.isFalling ? 'rgba(239, 68, 68, 0.85)' : 'rgba(56, 189, 248, 0.85)'),
         bgColor: powerState.isFlying 
-          ? 'rgba(126, 34, 206, 0.95)' 
+          ? (powerState.isAfterburner ? 'rgba(159, 18, 57, 0.95)' : (powerState.isAirbrake ? 'rgba(14, 116, 144, 0.95)' : 'rgba(126, 34, 206, 0.95)'))
           : (powerState.isFalling ? 'rgba(153, 27, 27, 0.95)' : 'rgba(14, 116, 144, 0.95)')
       });
     }
   }
 
   function disposePower() {
+    try { AudioFX.stopJet(); } catch (e) {}
+    try { AudioFX.stopTurbo(); } catch (e) {}
     const drsBox = document.getElementById('polytrack-drs-box');
     if (drsBox && drsBox.parentNode) {
       drsBox.parentNode.removeChild(drsBox);
@@ -2362,6 +3066,11 @@
     powerState.isFlying = false;
     powerState.wasFlying = false;
     powerState.isFalling = false;
+    powerState.wasFalling = false;
+    powerState.isAfterburner = false;
+    powerState.wasAfterburner = false;
+    powerState.isAirbrake = false;
+    powerState.wasAirbrake = false;
     powerState.fallVy = 0;
     powerState.flightPos = null;
     powerState.flightTime = 0;
