@@ -438,6 +438,24 @@
         osc.stop(t + 0.08);
       } catch (e) {}
     },
+    playWallScrape: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(340, t);
+        osc.frequency.linearRampToValueAtTime(140, t + 0.12);
+        gain.gain.setValueAtTime(0.07, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.12);
+      } catch (e) {}
+    },
     playKersSurge: function() {
       try {
         this.init();
@@ -1913,6 +1931,8 @@
     mouseLeftClick: false,
     mouseRightClick: false,
     crosshairEl: null,
+    raycaster: null,
+    lastWallScrape: 0,
 
     // UI Elements
     hudEl: null,
@@ -2306,6 +2326,219 @@
       return quatTarget;
     }
     return { x, y, z, w, _x: x, _y: y, _z: z, _w: w };
+  }
+
+  // --- TRACK & OBSTACLE COLLISION DETECTOR FOR AERODYNAMIC FLIGHT ---
+  function findRootSceneAndCarGroup(chassisMesh) {
+    if (!chassisMesh) return { rootScene: null, carTopGroup: null };
+    let curr = chassisMesh;
+    let carTopGroup = chassisMesh;
+    while (curr.parent) {
+      carTopGroup = curr;
+      curr = curr.parent;
+    }
+    return { rootScene: curr, carTopGroup };
+  }
+
+  function getTrackCollisionMeshes(rootScene, carTopGroup, powerState) {
+    if (!rootScene) return [];
+    const now = performance.now();
+    if (powerState && powerState.lastMeshCollect && now - powerState.lastMeshCollect < 500 && powerState.cachedCollisionMeshes) {
+      return powerState.cachedCollisionMeshes;
+    }
+    const meshes = [];
+    try {
+      if (carTopGroup) {
+        carTopGroup.traverse(o => { o._isPlayerCar = true; });
+      }
+      rootScene.traverse(obj => {
+        if (obj._isPlayerCar) return;
+        if ((obj.isMesh || obj.isInstancedMesh) && obj.visible !== false) {
+          const name = obj.name || '';
+          if (name.includes('flame') || name.includes('trail') || name.includes('Helper') || name.includes('crosshair')) {
+            return;
+          }
+          meshes.push(obj);
+        }
+      });
+      if (powerState) {
+        powerState.cachedCollisionMeshes = meshes;
+        powerState.lastMeshCollect = now;
+      }
+    } catch (e) {}
+    return meshes;
+  }
+
+  function resolveFlightCollisions(powerState, Vx, Vy, Vz, dt, raycaster, RayVec3, meshes, isGrounded) {
+    if (!powerState.flightPos) return { landed: false, Vx, Vy, Vz };
+
+    const pos = powerState.flightPos;
+    const flightTime = powerState.flightTime || 0;
+    const totalYaw = powerState.flightHeading + (powerState.planeYaw || 0);
+
+    // Vecteurs orthonormaux du repère local de l'avion
+    const sinY = Math.sin(totalYaw);
+    const cosY = Math.cos(totalYaw);
+    const Rx = cosY, Rz = -sinY; // Vecteur Droite
+    const Lx = -cosY, Lz = sinY; // Vecteur Gauche
+
+    // 1. Détection Atterrissage sur la route avec les roues ("on touche la route avec les roues sa atteris") :
+    // A. Contact réel des roues rapporté par le moteur physique
+    if (flightTime > 0.12 && isGrounded) {
+      return { landed: true, Vx, Vy, Vz };
+    }
+
+    // B. Détection sous les roues par raycast vertical vers le bas
+    if (flightTime > 0.12 && raycaster && RayVec3 && meshes.length > 0) {
+      try {
+        const vOrigin = powerState.colOrigin || new RayVec3();
+        const vDir = powerState.colDir || new RayVec3();
+        vOrigin.set(pos.x, pos.y + 0.35, pos.z);
+        vDir.set(0, -1, 0);
+        raycaster.set(vOrigin, vDir);
+        raycaster.near = 0.01;
+        raycaster.far = 0.85; // Hauteur roues/sol
+        const downHits = raycaster.intersectObjects(meshes, false);
+        if (downHits.length > 0) {
+          const hit = downHits[0];
+          const ny = hit.face ? hit.face.normal.y : 1;
+          // Surface de piste / route orientée vers le haut
+          if (ny > 0.30 && hit.point.y <= pos.y + 0.20) {
+            pos.y = hit.point.y + 0.35; // Calage précis de la hauteur de caisse
+            return { landed: true, Vx, Vy, Vz };
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Détection & Glissement contre les Murs et Bordures ("si on tape de cotées c'est trql") :
+    if (raycaster && RayVec3 && meshes.length > 0) {
+      try {
+        const vOrigin = powerState.colOrigin || new RayVec3();
+        const vDir = powerState.colDir || new RayVec3();
+
+        // 2A. Feeler latéral GAUCHE (aile gauche & flanc gauche)
+        vOrigin.set(pos.x, pos.y + 0.25, pos.z);
+        vDir.set(Lx, 0, Lz);
+        raycaster.set(vOrigin, vDir);
+        raycaster.near = 0.05;
+        raycaster.far = 1.25; // Portée d'envergure latérale
+        const leftHits = raycaster.intersectObjects(meshes, false);
+        if (leftHits.length > 0) {
+          const hit = leftHits[0];
+          const hitNy = hit.face ? hit.face.normal.y : 0;
+          if (Math.abs(hitNy) < 0.75 && hit.distance < 1.15) {
+            const overlap = 1.15 - hit.distance;
+            // Repousser le véhicule vers la droite (hors du mur)
+            pos.x += Rx * overlap;
+            pos.z += Rz * overlap;
+            // Annuler la vitesse vers le mur gauche + rebond doux
+            const vIntoLeft = Vx * Lx + Vz * Lz;
+            if (vIntoLeft > 0) {
+              Vx -= 1.25 * vIntoLeft * Lx;
+              Vz -= 1.25 * vIntoLeft * Lz;
+              Vx *= 0.88;
+              Vz *= 0.88;
+            }
+            const now = performance.now();
+            if (!powerState.lastWallScrape || now - powerState.lastWallScrape > 160) {
+              AudioFX.playWallScrape();
+              powerState.lastWallScrape = now;
+            }
+          }
+        }
+
+        // 2B. Feeler latéral DROIT (aile droite & flanc droit)
+        vOrigin.set(pos.x, pos.y + 0.25, pos.z);
+        vDir.set(Rx, 0, Rz);
+        raycaster.set(vOrigin, vDir);
+        raycaster.near = 0.05;
+        raycaster.far = 1.25;
+        const rightHits = raycaster.intersectObjects(meshes, false);
+        if (rightHits.length > 0) {
+          const hit = rightHits[0];
+          const hitNy = hit.face ? hit.face.normal.y : 0;
+          if (Math.abs(hitNy) < 0.75 && hit.distance < 1.15) {
+            const overlap = 1.15 - hit.distance;
+            // Repousser le véhicule vers la gauche (hors du mur)
+            pos.x += Lx * overlap;
+            pos.z += Lz * overlap;
+            // Annuler la vitesse vers le mur droit + rebond doux
+            const vIntoRight = Vx * Rx + Vz * Rz;
+            if (vIntoRight > 0) {
+              Vx -= 1.25 * vIntoRight * Rx;
+              Vz -= 1.25 * vIntoRight * Rz;
+              Vx *= 0.88;
+              Vz *= 0.88;
+            }
+            const now = performance.now();
+            if (!powerState.lastWallScrape || now - powerState.lastWallScrape > 160) {
+              AudioFX.playWallScrape();
+              powerState.lastWallScrape = now;
+            }
+          }
+        }
+
+        // 2C. Détection frontale / avant (nez de l'avion le long de la vitesse)
+        const moveSpeed = Math.hypot(Vx, Vy, Vz);
+        const moveDist = moveSpeed * dt;
+        if (moveDist > 1e-4) {
+          vOrigin.set(pos.x, pos.y, pos.z);
+          vDir.set(Vx / moveSpeed, Vy / moveSpeed, Vz / moveSpeed);
+          raycaster.set(vOrigin, vDir);
+          raycaster.near = 0.05;
+          raycaster.far = moveDist + 1.25;
+          const fwdHits = raycaster.intersectObjects(meshes, false);
+          if (fwdHits.length > 0) {
+            const hit = fwdHits[0];
+            const hitNy = hit.face ? hit.face.normal.y : 0;
+
+            // Route ou rampe montante devant l'avion -> Atterrissage immédiat
+            if (hitNy > 0.40 && hit.point.y <= pos.y + 0.35) {
+              if (flightTime > 0.12) {
+                pos.y = hit.point.y + 0.35;
+                return { landed: true, Vx, Vy, Vz };
+              }
+            } else {
+              // Mur, bordure haute ou pilier frontal
+              const dx = pos.x - hit.point.x;
+              const dz = pos.z - hit.point.z;
+              const pDist = Math.hypot(dx, dz);
+              if (pDist > 0.001) {
+                const nx = dx / pDist;
+                const nz = dz / pDist;
+
+                // Repousser hors de l'obstacle
+                pos.x = hit.point.x + nx * 1.15;
+                pos.z = hit.point.z + nz * 1.15;
+
+                // Déviation et glissement élastique
+                const vDotN = Vx * nx + Vz * nz;
+                if (vDotN < 0) {
+                  Vx -= 1.35 * vDotN * nx;
+                  Vz -= 1.35 * vDotN * nz;
+                  Vx *= 0.82;
+                  Vz *= 0.82;
+                }
+
+                const now = performance.now();
+                if (!powerState.lastWallScrape || now - powerState.lastWallScrape > 160) {
+                  AudioFX.playWallScrape();
+                  powerState.lastWallScrape = now;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Déplacement libre
+    pos.x += Vx * dt;
+    pos.y += Vy * dt;
+    pos.z += Vz * dt;
+
+    return { landed: false, Vx, Vy, Vz };
   }
 
   function updatePower(carInstance, dt, THREE, l, be, te, ie, xe, ye, ne) {
@@ -2758,6 +2991,25 @@
         aimY = (powerState.mouseAimY - Math.sign(powerState.mouseAimY) * deadzone) / (1 - deadzone);
       }
 
+      // Préparation collision 3D et Raycast Three.js
+      const chassisMesh = (0, l.gn)(carInstance, be, "f");
+      const { rootScene, carTopGroup } = findRootSceneAndCarGroup(chassisMesh);
+      if (!powerState.raycaster && THREE) {
+        const RayClass = THREE.Raycaster || THREE.tBo;
+        if (RayClass) {
+          try { powerState.raycaster = new RayClass(); } catch (e) {}
+        }
+      }
+      const RayVec3 = THREE && (THREE.Vector3 || THREE.Pq0);
+      if (RayVec3 && !powerState.colOrigin) {
+        try {
+          powerState.colOrigin = new RayVec3();
+          powerState.colDir = new RayVec3();
+        } catch (e) {}
+      }
+      const meshes = getTrackCollisionMeshes(rootScene, carTopGroup, powerState);
+      const ray = powerState.raycaster;
+
       // --- CAS 1 : VOL ACTIF PROPULSÉ (isFlying) ---
       if (powerState.isFlying) {
         powerState.flightTime += dt;
@@ -2792,12 +3044,15 @@
           inputCtrl.down = false;
         }
 
-        // 1. Déflexion du cap et attitude selon la souris
-        if (Math.abs(aimX) > 0.005) {
-          powerState.flightHeading += aimX * (wantsAirbrake ? 4.2 : 3.6) * dt;
+        // 1. Déflexion du cap et attitude (pilotage souris pur + support touches gauche/droite ZQSD)
+        const keySteer = (controls.right ? 1.0 : 0) - (controls.left ? 1.0 : 0);
+        const steerInput = Math.max(-1.0, Math.min(1.0, aimX + keySteer));
+
+        if (Math.abs(steerInput) > 0.005) {
+          powerState.flightHeading -= steerInput * (wantsAirbrake ? 4.2 : 3.6) * dt;
         }
-        const targetYaw = aimX * 0.38;
-        const targetRoll = -aimX * 0.38;
+        const targetYaw = -steerInput * 0.38;
+        const targetRoll = steerInput * 0.38;
         const targetPitch = aimY * 0.38;
 
         const snapRate = Math.min(1.0, dt * 32.0);
@@ -2847,17 +3102,40 @@
 
         const pitchCos = Math.cos(powerState.planePitch);
         const forwardSpeed = speedMps * Math.max(0.7, pitchCos);
-        const Vx = Math.sin(totalYaw) * forwardSpeed;
-        const Vz = Math.cos(totalYaw) * forwardSpeed;
+        let Vx = Math.sin(totalYaw) * forwardSpeed;
+        let Vz = Math.cos(totalYaw) * forwardSpeed;
 
         if (!powerState.flightPos && state.position) {
           powerState.flightPos = { x: state.position.x, y: state.position.y, z: state.position.z };
         }
-        if (powerState.flightPos) {
-          powerState.flightPos.x += Vx * dt;
-          powerState.flightPos.y += Vy * dt;
-          powerState.flightPos.z += Vz * dt;
 
+        // Résolution physique des collisions avec les murs et atterrissage sur la piste
+        const colResult = resolveFlightCollisions(powerState, Vx, Vy, Vz, dt, ray, RayVec3, meshes, isGrounded);
+        Vx = colResult.Vx;
+        Vy = colResult.Vy;
+        Vz = colResult.Vz;
+
+        if (colResult.landed) {
+          powerState.isFlying = false;
+          powerState.isFalling = false;
+          if (state.position && powerState.flightPos) {
+            state.position.x = powerState.flightPos.x;
+            state.position.y = powerState.flightPos.y;
+            state.position.z = powerState.flightPos.z;
+          }
+          if (state.velocity) {
+            state.velocity.x = Vx;
+            state.velocity.y = 0;
+            state.velocity.z = Vz;
+          }
+          powerState.flightPos = null;
+          powerState.flightFuelCooldown = 2.0;
+          AudioFX.stopJet();
+          AudioFX.playTouchdown();
+          if (jetFlames) jetFlames.visible = false;
+          if (vortexTrails) vortexTrails.visible = false;
+          document.body.classList.remove('polytrack-flying');
+        } else if (powerState.flightPos) {
           if (state.position) {
             state.position.x = powerState.flightPos.x;
             state.position.y = powerState.flightPos.y;
@@ -2908,25 +3186,13 @@
           }
         }
 
-        // Fin du vol propulsé :
-        // 1. Plus de carburant -> PAS D'ATTERRISSAGE FORCÉ ! L'AVION COMMENCE SA CHUTE LIBRE NATURELLE
+        // Fin du vol propulsé si plus de carburant -> chute libre sous gravité
         if (powerState.flightFuel <= 0) {
           powerState.isFlying = false;
           powerState.isFalling = true; // Déclenche la chute libre sous gravité
           powerState.fallVy = Vy;
           powerState.flightFuelCooldown = 2.5; // Cooldown de 2.5s après la fin du vol
           AudioFX.stopJet();
-          if (jetFlames) jetFlames.visible = false;
-          if (vortexTrails) vortexTrails.visible = false;
-        }
-        // 2. Vol en piqué vers la piste qui atteint le sol réel
-        else if (powerState.flightTime > 0.5 && powerState.flightPos && powerState.flightPos.y <= (powerState.takeoffGroundY + 0.4) && (isGrounded || powerState.flightPos.y <= powerState.takeoffGroundY)) {
-          powerState.isFlying = false;
-          powerState.isFalling = false;
-          powerState.flightPos = null;
-          powerState.flightFuelCooldown = 2.0;
-          AudioFX.stopJet();
-          AudioFX.playTouchdown();
           if (jetFlames) jetFlames.visible = false;
           if (vortexTrails) vortexTrails.visible = false;
         }
@@ -2949,22 +3215,41 @@
         const speedMps = powerState.flightSpeed / 3.6;
 
         const totalYaw = powerState.flightHeading + (powerState.planeYaw || 0);
-        const Vx = Math.sin(totalYaw) * speedMps;
-        const Vz = Math.cos(totalYaw) * speedMps;
+        let Vx = Math.sin(totalYaw) * speedMps;
+        let Vz = Math.cos(totalYaw) * speedMps;
 
-        powerState.flightPos.x += Vx * dt;
-        powerState.flightPos.y += powerState.fallVy * dt;
-        powerState.flightPos.z += Vz * dt;
+        // Résolution physique des collisions avec murs et contact sol pendant la chute
+        const colResult = resolveFlightCollisions(powerState, Vx, powerState.fallVy, Vz, dt, ray, RayVec3, meshes, isGrounded);
+        Vx = colResult.Vx;
+        powerState.fallVy = colResult.Vy;
+        Vz = colResult.Vz;
 
-        if (state.position) {
-          state.position.x = powerState.flightPos.x;
-          state.position.y = powerState.flightPos.y;
-          state.position.z = powerState.flightPos.z;
-        }
-        if (state.velocity) {
-          state.velocity.x = Vx;
-          state.velocity.y = powerState.fallVy;
-          state.velocity.z = Vz;
+        if (colResult.landed) {
+          powerState.isFalling = false;
+          if (state.position && powerState.flightPos) {
+            state.position.x = powerState.flightPos.x;
+            state.position.y = powerState.flightPos.y;
+            state.position.z = powerState.flightPos.z;
+          }
+          if (state.velocity) {
+            state.velocity.x = Vx;
+            state.velocity.y = 0;
+            state.velocity.z = Vz;
+          }
+          powerState.flightPos = null;
+          powerState.flightFuelCooldown = 2.5;
+          AudioFX.playTouchdown();
+        } else if (powerState.flightPos) {
+          if (state.position) {
+            state.position.x = powerState.flightPos.x;
+            state.position.y = powerState.flightPos.y;
+            state.position.z = powerState.flightPos.z;
+          }
+          if (state.velocity) {
+            state.velocity.x = Vx;
+            state.velocity.y = powerState.fallVy;
+            state.velocity.z = Vz;
+          }
         }
 
         // Nez plongeant naturellement selon le vecteur de vitesse de chute
@@ -2982,14 +3267,6 @@
               state.quaternion.w = powerState.flightQuat.w;
             }
           } catch (e) {}
-        }
-
-        // Fin de la chute libre : contact avec la piste ou le sol
-        if (powerState.flightPos.y <= (powerState.takeoffGroundY + 0.3) || (isGrounded && powerState.flightPos.y <= powerState.takeoffGroundY + 1.2)) {
-          powerState.isFalling = false;
-          powerState.flightPos = null;
-          powerState.flightFuelCooldown = 2.5; // Cooldown de 2.5s avant de démarrer la recharge
-          AudioFX.playTouchdown();
         }
       }
 
