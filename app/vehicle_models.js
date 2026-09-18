@@ -1899,6 +1899,9 @@
     takeoffGroundY: 0,
     planeAltitude: 0,
     targetAltitude: 0,
+    groundHeading: null,
+    lastGroundX: null,
+    lastGroundZ: null,
     planeRoll: 0,
     planePitch: 0,
     planeYaw: 0,
@@ -2330,6 +2333,9 @@
       powerState.planeRoll = 0;
       powerState.planePitch = 0;
       powerState.planeYaw = 0;
+      powerState.groundHeading = null;
+      powerState.lastGroundX = null;
+      powerState.lastGroundZ = null;
       powerState.isFlying = false;
       powerState.isFalling = false;
       powerState.fallVy = 0;
@@ -2388,6 +2394,9 @@
       powerState.planeAltitude = 0;
       powerState.targetAltitude = 0;
       powerState.flightHeading = 0;
+      powerState.groundHeading = null;
+      powerState.lastGroundX = null;
+      powerState.lastGroundZ = null;
       powerState.planeRoll = 0;
       powerState.planePitch = 0;
       powerState.planeYaw = 0;
@@ -2663,6 +2672,21 @@
         powerState.airborneFrames = 0;
       }
 
+      // Suivi précis de la trajectoire au sol pour aligner le vecteur de vol lors du décollage
+      if (state.position && isGrounded) {
+        if (powerState.lastGroundX != null && powerState.lastGroundZ != null) {
+          const dX = state.position.x - powerState.lastGroundX;
+          const dZ = state.position.z - powerState.lastGroundZ;
+          const distSq = dX * dX + dZ * dZ;
+          // Dès que la voiture roule à plus de ~2 km/h (> 0.0004 m²/frame)
+          if (distSq > 0.0004) {
+            powerState.groundHeading = Math.atan2(dX, dZ);
+          }
+        }
+        powerState.lastGroundX = state.position.x;
+        powerState.lastGroundZ = state.position.z;
+      }
+
       // Ensure flightQuat exists
       if (!powerState.flightQuat) {
         const QuatClass = (THREE && (THREE.Quaternion || THREE.PTz)) || (carInstance.getQuaternion ? carInstance.getQuaternion().constructor : null);
@@ -2705,11 +2729,16 @@
         powerState.flightSpeed = Math.min(270, Math.max(180, (state.speedKmh || 220)));
         powerState.fallVy = 0;
 
-        // Capture initial launch heading from vehicle orientation
-        const sq = state.quaternion || { x: 0, y: 0, z: 0, w: 1 };
-        const fx = 2 * (sq.x * sq.z + sq.w * sq.y);
-        const fz = 1 - 2 * (sq.x * sq.x + sq.y * sq.y);
-        powerState.flightHeading = Math.atan2(fx, fz);
+        // Cap de vol initial : priorité absolue à la direction réelle de déplacement sur la piste
+        if (powerState.groundHeading != null) {
+          powerState.flightHeading = powerState.groundHeading;
+        } else {
+          // Secours si décollage quasi-stationnaire : orientation du véhicule
+          const sq = state.quaternion || { x: 0, y: 0, z: 0, w: 1 };
+          const fx = 2 * (sq.x * sq.z + sq.w * sq.y);
+          const fz = 1 - 2 * (sq.x * sq.x + sq.y * sq.y);
+          powerState.flightHeading = Math.atan2(fx, fz);
+        }
         powerState.planePitch = 0;
         powerState.planeRoll = 0;
         powerState.planeYaw = 0;
@@ -2765,10 +2794,10 @@
 
         // 1. Déflexion du cap et attitude selon la souris
         if (Math.abs(aimX) > 0.005) {
-          powerState.flightHeading -= aimX * (wantsAirbrake ? 4.2 : 3.6) * dt;
+          powerState.flightHeading += aimX * (wantsAirbrake ? 4.2 : 3.6) * dt;
         }
-        const targetYaw = -aimX * 0.38;
-        const targetRoll = aimX * 0.38;
+        const targetYaw = aimX * 0.38;
+        const targetRoll = -aimX * 0.38;
         const targetPitch = aimY * 0.38;
 
         const snapRate = Math.min(1.0, dt * 32.0);
@@ -2818,7 +2847,7 @@
 
         const pitchCos = Math.cos(powerState.planePitch);
         const forwardSpeed = speedMps * Math.max(0.7, pitchCos);
-        const Vx = -Math.sin(totalYaw) * forwardSpeed;
+        const Vx = Math.sin(totalYaw) * forwardSpeed;
         const Vz = Math.cos(totalYaw) * forwardSpeed;
 
         if (!powerState.flightPos && state.position) {
@@ -2920,7 +2949,7 @@
         const speedMps = powerState.flightSpeed / 3.6;
 
         const totalYaw = powerState.flightHeading + (powerState.planeYaw || 0);
-        const Vx = -Math.sin(totalYaw) * speedMps;
+        const Vx = Math.sin(totalYaw) * speedMps;
         const Vz = Math.cos(totalYaw) * speedMps;
 
         powerState.flightPos.x += Vx * dt;
