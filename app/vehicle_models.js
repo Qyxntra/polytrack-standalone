@@ -1507,18 +1507,20 @@
     const speedo = document.querySelector('.speedometer-ui');
     if (!speedo) return null;
 
+    // If an old speedometer-row was created, unwrap nativeBox so .speedometer-ui > .box styles apply cleanly
+    const row = speedo.querySelector('.speedometer-row');
+    if (row) {
+      const oldNativeBox = row.querySelector('.box:not(.polytrack-drs-box)');
+      if (oldNativeBox) {
+        speedo.appendChild(oldNativeBox);
+      }
+      row.parentNode.removeChild(row);
+    }
+
     const nativeBox = speedo.querySelector('.box:not(.polytrack-drs-box)');
     if (!nativeBox) return null;
 
-    let row = speedo.querySelector('.speedometer-row');
-    if (!row) {
-      row = document.createElement('div');
-      row.className = 'speedometer-row';
-      speedo.insertBefore(row, nativeBox);
-      row.appendChild(nativeBox);
-    }
-
-    let drsBox = row.querySelector('#polytrack-drs-box');
+    let drsBox = speedo.querySelector('#polytrack-drs-box');
     if (!drsBox) {
       drsBox = document.createElement('div');
       drsBox.id = 'polytrack-drs-box';
@@ -1545,8 +1547,13 @@
       drsBox.addEventListener('pointerleave', release);
       drsBox.addEventListener('pointercancel', release);
 
-      // Insert BEFORE nativeBox so it sits directly to the LEFT of KM/H
-      row.insertBefore(drsBox, nativeBox);
+      // Append directly to speedo
+      speedo.appendChild(drsBox);
+    }
+
+    speedo.style.overflow = 'visible';
+    if (nativeBox && drsBox && nativeBox.offsetHeight > 0) {
+      drsBox.style.height = nativeBox.offsetHeight + 'px';
     }
 
     // Fullscreen FX overlay for speed lines and impact flashes
@@ -1739,7 +1746,7 @@
       }
 
       renderTelemetryHUD({
-        label: 'NITRO',
+        label: 'BOOST',
         isReady: powerState.nitroFuel > 5,
         isActive: isNitroActive,
         glowColor: 'rgba(0, 229, 255, 0.85)',
@@ -1807,7 +1814,7 @@
       }
 
       renderTelemetryHUD({
-        label: powerState.slamCharged ? 'SLAM' : 'BÉLIER',
+        label: powerState.slamCharged ? 'SLAM' : 'BOOST',
         isReady: powerState.ramEnergy > 5 || powerState.slamCharged,
         isActive: isRamActive || powerState.slamTriggered,
         glowColor: 'rgba(245, 158, 11, 0.85)',
@@ -1888,7 +1895,7 @@
       }
 
       renderTelemetryHUD({
-        label: powerState.isGliding ? 'PLANÉ' : 'RÉACTEUR',
+        label: 'FLIGHT',
         isReady: powerState.afterburnerFuel > 4 || powerState.isGliding,
         isActive: isAfterburnerActive || powerState.isGliding,
         glowColor: powerState.isGliding ? 'rgba(52, 211, 153, 0.85)' : 'rgba(217, 70, 239, 0.85)',
@@ -1922,9 +1929,12 @@
 
   // --- 6. GARAGE UI ENHANCEMENTS & SHOWROOM STYLING ---
   function injectGlobalStyles() {
-    if (document.getElementById('polytrack-enhanced-ui-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'polytrack-enhanced-ui-styles';
+    let style = document.getElementById('polytrack-enhanced-ui-styles');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'polytrack-enhanced-ui-styles';
+      document.head.appendChild(style);
+    }
     style.textContent = `
       /* Vehicle Options Panel: exactly like native PolyTrack options panels (Rims, Patterns, Exhausts) */
       .customization-panel-ui > .vehicle-options-panel {
@@ -1988,87 +1998,162 @@
         letter-spacing: 0.5px;
         text-transform: uppercase;
       }
-      /* Native-Style Telemetry DRS Box (next to native .speedometer-ui KM/H) */
-      .speedometer-ui > .speedometer-row {
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: stretch !important;
-        justify-content: flex-end !important;
+      /* Speedometer UI container */
+      .speedometer-ui {
+        overflow: visible !important;
+      }
+
+      /* Guaranteed restoration of native KM/H box */
+      .speedometer-ui > .box:not(.polytrack-drs-box),
+      .speedometer-ui .box:not(.polytrack-drs-box) {
         margin: 0 !important;
+        padding: 8px 10px !important;
+        min-width: 140px !important;
+        line-height: 0 !important;
+        font-size: 40px !important;
+        color: var(--text-color, #ffffff) !important;
+        text-align: right !important;
+        opacity: 0.9 !important;
+        clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%) !important;
+        background-color: var(--surface-color, #0b1226) !important;
+        display: block !important;
+      }
+
+      .speedometer-ui.up > .box:not(.polytrack-drs-box),
+      .speedometer-ui.up .box:not(.polytrack-drs-box) {
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%) !important;
+      }
+
+      .speedometer-ui > .box:not(.polytrack-drs-box) > .container,
+      .speedometer-ui .box:not(.polytrack-drs-box) > .container {
+        margin: 0 !important;
+        padding: 0 0 0 16px !important;
+        clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%) !important;
+        background-color: var(--surface-tertiary-color, #1a2544) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        box-sizing: border-box !important;
+      }
+
+      .speedometer-ui.up > .box:not(.polytrack-drs-box) > .container,
+      .speedometer-ui.up .box:not(.polytrack-drs-box) > .container {
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 6px 100%) !important;
+      }
+
+      .speedometer-ui > .box:not(.polytrack-drs-box) > .container > span:last-of-type,
+      .speedometer-ui .box:not(.polytrack-drs-box) > .container > span:last-of-type {
+        opacity: 0.5 !important;
+        margin: 0 0.3em 0 0.25em !important;
         padding: 0 !important;
+        font-size: 0.5em !important;
+      }
+      .speedometer-ui > .box:not(.polytrack-drs-box) > .container > span > span,
+      .speedometer-ui .box:not(.polytrack-drs-box) > .container > span > span {
+        display: inline-block !important;
+        width: 0.5em !important;
+        text-align: center !important;
       }
 
-      .speedometer-ui > .speedometer-row > .polytrack-drs-box {
-        margin: 0 4px 0 0;
-        padding: 8px 10px;
-        min-width: 90px;
-        line-height: 0;
-        font-size: 40px;
-        color: var(--text-color);
-        text-align: center;
-        opacity: 0.92;
-        clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
-        background-color: var(--surface-color);
-        cursor: pointer;
-        user-select: none;
-        display: flex;
-        box-sizing: border-box;
-        transition: transform 0.08s ease, filter 0.12s ease;
+      /* Native-Style Telemetry Power Box (DRS / BOOST / FLIGHT / SLAM) to the left of KM/H */
+      .speedometer-ui #polytrack-drs-box,
+      .speedometer-ui > #polytrack-drs-box {
+        position: absolute !important;
+        right: 100% !important;
+        bottom: 0 !important;
+        margin: 0 4px 0 0 !important;
+        padding: 8px 10px !important;
+        min-width: 95px !important;
+        line-height: 0 !important;
+        font-size: 40px !important;
+        color: var(--text-color, #ffffff) !important;
+        text-align: center !important;
+        opacity: 0.92 !important;
+        clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%) !important;
+        background-color: var(--surface-color, #0b1226) !important;
+        cursor: pointer !important;
+        user-select: none !important;
+        display: flex !important;
+        box-sizing: border-box !important;
+        transition: transform 0.08s ease, filter 0.12s ease !important;
+        z-index: 10 !important;
       }
 
-      .speedometer-ui.up > .speedometer-row > .polytrack-drs-box {
-        clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 100%, 8px 100%);
+      .speedometer-ui.up #polytrack-drs-box,
+      .speedometer-ui.up > #polytrack-drs-box {
+        bottom: auto !important;
+        top: 0 !important;
+        clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 100%, 8px 100%) !important;
       }
 
-      .speedometer-ui > .speedometer-row > .polytrack-drs-box > .container {
-        margin: 0;
-        padding: 0 16px;
-        clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
-        background-color: var(--surface-tertiary-color);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        height: 100%;
-        box-sizing: border-box;
-        transition: background-color 0.12s ease, box-shadow 0.12s ease;
+      .speedometer-ui #polytrack-drs-box > .container,
+      .speedometer-ui > #polytrack-drs-box > .container {
+        margin: 0 !important;
+        padding: 0 14px !important;
+        clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%) !important;
+        background-color: var(--surface-tertiary-color, #1a2544) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        height: 100% !important;
+        box-sizing: border-box !important;
+        transition: background-color 0.12s ease, box-shadow 0.12s ease !important;
       }
 
-      .speedometer-ui.up > .speedometer-row > .polytrack-drs-box > .container {
-        clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 100%, 6px 100%);
+      .speedometer-ui.up #polytrack-drs-box > .container,
+      .speedometer-ui.up > #polytrack-drs-box > .container {
+        clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 100%, 6px 100%) !important;
       }
 
-      .speedometer-ui > .speedometer-row > .polytrack-drs-box .drs-label {
-        font-family: forced_square, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        font-size: 25px;
+      .speedometer-ui #polytrack-drs-box .drs-label,
+      .speedometer-ui > #polytrack-drs-box .drs-label {
+        font-family: ForcedSquare, forced_square, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 24px;
         font-weight: 900;
         font-style: italic;
         letter-spacing: 1.5px;
-        color: var(--text-color);
+        color: var(--text-color, #ffffff);
         opacity: 0.45;
         text-transform: uppercase;
         display: inline-block;
+        white-space: nowrap;
         transition: opacity 0.12s ease, color 0.12s ease, text-shadow 0.12s ease;
       }
 
       /* Ready State: Available to fire */
-      .speedometer-ui > .speedometer-row > .polytrack-drs-box.ready .drs-label {
+      .speedometer-ui #polytrack-drs-box.ready .drs-label,
+      .speedometer-ui > #polytrack-drs-box.ready .drs-label {
         opacity: 0.95;
         color: #ffffff;
       }
 
       /* Active State: [Shift] held & power running */
-      .speedometer-ui > .speedometer-row > .polytrack-drs-box.active {
+      .speedometer-ui #polytrack-drs-box.active,
+      .speedometer-ui > #polytrack-drs-box.active {
         transform: translateY(2px);
         filter: drop-shadow(0 0 10px var(--drs-glow, rgba(34, 197, 94, 0.85)));
       }
-      .speedometer-ui > .speedometer-row > .polytrack-drs-box.active > .container {
-        background-color: var(--drs-bg, rgba(21, 128, 61, 0.95));
+      .speedometer-ui #polytrack-drs-box.active > .container,
+      .speedometer-ui > #polytrack-drs-box.active > .container {
+        background-color: var(--drs-bg, rgba(21, 128, 61, 0.95)) !important;
       }
-      .speedometer-ui > .speedometer-row > .polytrack-drs-box.active .drs-label {
+      .speedometer-ui #polytrack-drs-box.active .drs-label,
+      .speedometer-ui > #polytrack-drs-box.active .drs-label {
         opacity: 1;
         color: #ffffff;
         text-shadow: 0 0 10px #ffffff, 0 0 18px var(--drs-glow, #4ade80);
+      }
+
+      /* Disabled State: empty / recharging */
+      .speedometer-ui #polytrack-drs-box.disabled,
+      .speedometer-ui > #polytrack-drs-box.disabled {
+        opacity: 0.65;
+        filter: grayscale(0.5);
+      }
+      .speedometer-ui #polytrack-drs-box.disabled .drs-label,
+      .speedometer-ui > #polytrack-drs-box.disabled .drs-label {
+        opacity: 0.3;
       }
 
       .customization-panel-ui > .options-panel > button.vehicle-option-btn .vehicle-preview-tooltip {
