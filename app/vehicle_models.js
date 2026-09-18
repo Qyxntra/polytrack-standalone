@@ -171,6 +171,25 @@
         osc.stop(t + 0.20);
       } catch (e) {}
     },
+    playGliderGlide: function() {
+      try {
+        this.init();
+        if (!this.ctx || this.ctx.state === 'suspended') return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, t);
+        osc.frequency.linearRampToValueAtTime(460, t + 0.12);
+        osc.frequency.linearRampToValueAtTime(280, t + 0.25);
+        gain.gain.setValueAtTime(0.04, t);
+        gain.gain.linearRampToValueAtTime(0.001, t + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.25);
+      } catch (e) {}
+    },
     playKineticRam: function() {
       try {
         this.init();
@@ -1895,49 +1914,65 @@
       });
     }
 
-    // --- 4. AVION: VOL AÉRODYNAMIQUE & POSTCOMBUSTION SUPERSONIQUE ---
+    // --- 4. AVION: CONTRÔLE DE VOL AÉRODYNAMIQUE (TREMPLIN / EN L'AIR UNIQUEMENT) ---
     else if (vType === 'avion') {
       const jetFlames = ensurePlaneJetFlames(carInstance, l, be, THREE, window._cachedWeakMaps && window._cachedWeakMaps.B);
-      const wantsFlight = powerState.shiftKeyHeld || powerState.spaceKeyHeld;
+
+      // Track airborne frames: strictly requires being in the air (jumping off a tremplin)
+      if (!isGrounded) {
+        powerState.airborneFrames++;
+      } else {
+        powerState.airborneFrames = 0;
+      }
+
+      const isAirborne = !isGrounded && powerState.airborneFrames >= 2;
+      const wantsFlight = isAirborne && (powerState.shiftKeyHeld || powerState.spaceKeyHeld);
       const canFly = powerState.flightFuel > 2;
       const isFlying = wantsFlight && canFly;
 
       if (isFlying && !powerState.wasFlying) {
-        AudioFX.playAfterburner();
+        AudioFX.playGliderGlide();
       }
       powerState.wasFlying = isFlying;
       powerState.isFlying = isFlying;
 
-      // 3D supersonic jet flame jitter
+      // Aerodynamic engine trail when active in air
       if (jetFlames) {
         jetFlames.visible = isFlying;
         if (isFlying) {
-          const jitter = 0.88 + Math.random() * 0.32;
-          jetFlames.scale.set(jitter, jitter, 1.05 + Math.random() * 0.5);
+          jetFlames.scale.set(0.65, 0.65, 0.85 + Math.random() * 0.25);
         }
       }
 
       if (isFlying) {
-        // Flight fuel drains at 20%/sec -> exactly 5 seconds of flight duration
+        // Flight fuel drains at 20%/sec -> 5 seconds of active air control
         powerState.flightFuel = Math.max(0, powerState.flightFuel - 20 * dt);
 
-        // Target cruising altitude (11m default; climb to 24m with Up arrow; dive to 2.5m with Down arrow)
-        const targetAlt = controls.up ? 24 : (controls.down ? 2.5 : 11);
-        powerState.planeAltitude += (targetAlt - powerState.planeAltitude) * Math.min(1, dt * 3.8);
+        // Aerodynamic flight control in the air:
+        // [Up arrow]: pitch up, slow descent or slight lift
+        // [Down arrow]: dive nose down toward the track
+        // Neutral: smooth aerodynamic glide
+        let targetPitch = 0.0;
+        let liftRate = 1.2; // gentle glide lift countering gravity
+        if (controls.up) {
+          targetPitch = -0.26;
+          liftRate = 5.2; // climb / extend jump
+        } else if (controls.down) {
+          targetPitch = 0.26;
+          liftRate = -6.5; // dive down
+        }
+        powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 6.0);
+        powerState.planeAltitude = Math.min(16, Math.max(0, powerState.planeAltitude + liftRate * dt));
 
         // Aerodynamic banking (roll) when steering Left or Right
-        const targetRoll = controls.left ? -0.34 : (controls.right ? 0.34 : 0);
+        const targetRoll = controls.left ? -0.36 : (controls.right ? 0.36 : 0);
         powerState.planeRoll += (targetRoll - powerState.planeRoll) * Math.min(1, dt * 7.5);
 
-        // Aerodynamic pitch (nose up/down)
-        const targetPitch = controls.up ? -0.22 : (controls.down ? 0.22 : 0);
-        powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 6.5);
-
-        // In-air aerodynamic yaw steering rotation
+        // Aerodynamic yaw steering rotation in the air
         const steerDir = (controls.left ? 1 : 0) - (controls.right ? 1 : 0);
         if (steerDir !== 0 && state.quaternion) {
           try {
-            const yawAngle = steerDir * 1.8 * dt;
+            const yawAngle = steerDir * 1.6 * dt;
             const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawAngle);
             const curQ = new THREE.Quaternion(state.quaternion.x, state.quaternion.y, state.quaternion.z, state.quaternion.w);
             curQ.multiply(yawQuat);
@@ -1948,40 +1983,27 @@
           } catch (e) {}
         }
 
-        // Supersonic flight speed boost up to 325 km/h
-        state.speedKmh = Math.min(325, Math.max(state.speedKmh, 240) + 36 * dt);
-
-        // Forward thrust propulsion vector
-        if (state.position) {
-          const q = state.quaternion || { y: 0, w: 1 };
-          const forwardX = -2 * (q.x * q.z + q.w * q.y);
-          const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
-          state.position.x += forwardX * 15.5 * dt;
-          state.position.z += forwardZ * 15.5 * dt;
-        }
+        // NO SPEED BOOST ("pas de boost dans les airs"):
+        // The plane preserves its natural momentum from the jump/tremplin without artificial rocket boost
 
         if (powerState.fxOverlayEl) {
-          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(168, 85, 247, 0.22) 90%, rgba(192, 132, 252, 0.40) 100%)';
+          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 72%, rgba(56, 189, 248, 0.15) 100%)';
           powerState.fxOverlayEl.style.opacity = '1';
         }
       } else {
         // Flight fuel regenerates at 20%/sec -> fully regenerated in 5 seconds
         powerState.flightFuel = Math.min(powerState.maxFlightFuel, powerState.flightFuel + 20 * dt);
 
-        // Smooth landing descent if airborne
-        if (powerState.planeAltitude > 0.05) {
-          powerState.planeAltitude = Math.max(0, powerState.planeAltitude - 8.5 * dt);
+        // If plane touches ground, reset altitude and angles immediately
+        if (isGrounded) {
+          powerState.planeAltitude = 0;
+          powerState.planeRoll = 0;
+          powerState.planePitch = 0;
+        } else if (powerState.planeAltitude > 0.05) {
+          // If in air but not holding Shift, smoothly settle back to standard ballistic trajectory
+          powerState.planeAltitude = Math.max(0, powerState.planeAltitude - 8.0 * dt);
           powerState.planeRoll += (0 - powerState.planeRoll) * Math.min(1, dt * 6.0);
           powerState.planePitch += (0 - powerState.planePitch) * Math.min(1, dt * 6.0);
-
-          // Maintain gentle forward glide during descent
-          if (state.position) {
-            const q = state.quaternion || { y: 0, w: 1 };
-            const forwardX = -2 * (q.x * q.z + q.w * q.y);
-            const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
-            state.position.x += forwardX * 5.0 * dt;
-            state.position.z += forwardZ * 5.0 * dt;
-          }
         } else {
           powerState.planeAltitude = 0;
           powerState.planeRoll = 0;
@@ -1996,10 +2018,10 @@
       renderTelemetryHUD({
         label: 'FLIGHT',
         percent: powerState.flightFuel,
-        isReady: powerState.flightFuel > 5,
+        isReady: isAirborne && powerState.flightFuel > 5,
         isActive: isFlying,
-        glowColor: isFlying ? 'rgba(217, 70, 239, 0.9)' : 'rgba(52, 211, 153, 0.85)',
-        bgColor: isFlying ? 'rgba(162, 28, 175, 0.95)' : 'rgba(5, 150, 105, 0.95)'
+        glowColor: isFlying ? 'rgba(56, 189, 248, 0.9)' : 'rgba(52, 211, 153, 0.85)',
+        bgColor: isFlying ? 'rgba(14, 116, 144, 0.95)' : 'rgba(5, 150, 105, 0.95)'
       });
     }
   }
