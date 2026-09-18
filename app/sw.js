@@ -1,5 +1,5 @@
 // PolyTrack Standalone Service Worker (Offline & PWA Cache)
-const CACHE_NAME = 'polytrack-standalone-v27';
+const CACHE_NAME = 'polytrack-standalone-v28';
 
 const PRECACHE_ASSETS = [
   './',
