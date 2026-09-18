@@ -1717,6 +1717,21 @@
     }
   }
 
+  // Pure mathematical Euler YXZ to Quaternion converter (100% crash-proof in minified Three.js)
+  function makeQuatFromYXZ(pitch, heading, roll, quatTarget) {
+    const c1 = Math.cos(pitch / 2), c2 = Math.cos(heading / 2), c3 = Math.cos(roll / 2);
+    const s1 = Math.sin(pitch / 2), s2 = Math.sin(heading / 2), s3 = Math.sin(roll / 2);
+    const x = s1 * c2 * c3 + c1 * s2 * s3;
+    const y = c1 * s2 * c3 - s1 * c2 * s3;
+    const z = c1 * c2 * s3 - s1 * s2 * c3;
+    const w = c1 * c2 * c3 + s1 * s2 * s3;
+    if (quatTarget && typeof quatTarget.set === 'function') {
+      quatTarget.set(x, y, z, w);
+      return quatTarget;
+    }
+    return { x, y, z, w, _x: x, _y: y, _z: z, _w: w };
+  }
+
   function updatePower(carInstance, dt, THREE, l, be, te, ie, xe, ye, ne) {
     if (ie && !(0, l.gn)(carInstance, ie, "f")) return;
 
@@ -1762,10 +1777,18 @@
       carInstance.getQuaternion = function() {
         const q = origGetQuaternion.call(this);
         const curType = window._selectedVehicleType || getSelectedVehicleType();
-        if (curType === 'avion' && powerState.flightBlend > 0.001 && powerState.flightQuat) {
-          try {
-            q.slerp(powerState.flightQuat, powerState.flightBlend);
-          } catch (e) {}
+        if (curType === 'avion' && powerState.flightBlend > 0.001) {
+          if (!powerState.flightQuat && q && q.constructor) {
+            try {
+              powerState.flightQuat = new q.constructor();
+            } catch (e) {}
+          }
+          if (powerState.flightQuat) {
+            try {
+              makeQuatFromYXZ(powerState.planePitch, powerState.flightHeading, powerState.planeRoll, powerState.flightQuat);
+              q.slerp(powerState.flightQuat, powerState.flightBlend);
+            } catch (e) {}
+          }
         }
         return q;
       };
@@ -2025,8 +2048,13 @@
       }
 
       // Ensure flightQuat exists
-      if (!powerState.flightQuat && typeof THREE !== 'undefined') {
-        powerState.flightQuat = new THREE.Quaternion();
+      if (!powerState.flightQuat) {
+        const QuatClass = (THREE && (THREE.Quaternion || THREE.PTz)) || (carInstance.getQuaternion ? carInstance.getQuaternion().constructor : null);
+        if (QuatClass) {
+          try {
+            powerState.flightQuat = new QuatClass();
+          } catch (e) {}
+        }
       }
 
       // Flight triggering:
@@ -2143,22 +2171,23 @@
         }
 
         // Build absolute flight quaternion
-        if (powerState.flightQuat && typeof THREE !== 'undefined') {
-          const rotEuler = new THREE.Euler(
-            powerState.planePitch,
-            powerState.flightHeading,
-            powerState.planeRoll,
-            'YXZ'
-          );
-          powerState.flightQuat.setFromEuler(rotEuler);
+        if (powerState.flightQuat) {
+          try {
+            makeQuatFromYXZ(
+              powerState.planePitch,
+              powerState.flightHeading,
+              powerState.planeRoll,
+              powerState.flightQuat
+            );
 
-          // Keep physics state orientation aligned so landing wheels touch flat
-          if (state.quaternion && powerState.flightBlend > 0.25) {
-            state.quaternion.x = powerState.flightQuat.x;
-            state.quaternion.y = powerState.flightQuat.y;
-            state.quaternion.z = powerState.flightQuat.z;
-            state.quaternion.w = powerState.flightQuat.w;
-          }
+            // Keep physics state orientation aligned so landing wheels touch flat
+            if (state.quaternion && powerState.flightBlend > 0.25) {
+              state.quaternion.x = powerState.flightQuat.x;
+              state.quaternion.y = powerState.flightQuat.y;
+              state.quaternion.z = powerState.flightQuat.z;
+              state.quaternion.w = powerState.flightQuat.w;
+            }
+          } catch (e) {}
         }
 
         // --- 2. AERODYNAMIC IN-AIR PROPULSION & LIFT ---
