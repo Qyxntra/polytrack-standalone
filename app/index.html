@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script>
 (function() {
-  var CURRENT_BUILD = 'v16';
+  var CURRENT_BUILD = 'v17';
   try {
     var stored = localStorage.getItem('polytrack_app_build');
     if (stored !== CURRENT_BUILD) {
@@ -20,6 +20,27 @@
         });
       }
     }
+    // Auto-heal resolution & antialiasing settings for returning players
+    var settingsRaw = localStorage.getItem('polytrack_v5_prod_settings');
+    if (settingsRaw) {
+      var sArr = JSON.parse(settingsRaw);
+      if (Array.isArray(sArr)) {
+        var mod = false;
+        for (var i = 0; i < sArr.length; i++) {
+          if (sArr[i][0] === 'Antialiasing' && sArr[i][1] === 'false') {
+            sArr[i][1] = 'true';
+            mod = true;
+          }
+          if (sArr[i][0] === 'RenderScale' && parseFloat(sArr[i][1]) < 1) {
+            sArr[i][1] = '1';
+            mod = true;
+          }
+        }
+        if (mod) {
+          localStorage.setItem('polytrack_v5_prod_settings', JSON.stringify(sArr));
+        }
+      }
+    }
   } catch(e) {}
 })();
 </script>
@@ -28,10 +49,10 @@
 <link rel="preload" href="images/discord.svg" as="image" type="image/svg+xml"/>
 <link rel="manifest" href="manifest.json"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
-<script src="static_adapter.js?v=16"></script>
-<script src="vehicle_models.js?v=16"></script>
-<script defer="defer" src="error_screen.bundle.js?v=16"></script>
-<script defer="defer" src="main.bundle.js?v=16"></script>
+<script src="static_adapter.js?v=17"></script>
+<script src="vehicle_models.js?v=17"></script>
+<script defer="defer" src="error_screen.bundle.js?v=17"></script>
+<script defer="defer" src="main.bundle.js?v=17"></script>
 </head>
 <body>
 <canvas id="screen"></canvas>
