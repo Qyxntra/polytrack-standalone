@@ -2369,7 +2369,7 @@
     return meshes;
   }
 
-  function resolveFlightCollisions(powerState, Vx, Vy, Vz, dt, raycaster, RayVec3, meshes, isGrounded) {
+  function resolveFlightCollisions(powerState, Vx, Vy, Vz, dt, raycaster, RayVec3, meshes, isGrounded, isFalling) {
     if (!powerState.flightPos) return { landed: false, Vx, Vy, Vz };
 
     const pos = powerState.flightPos;
@@ -2382,14 +2382,15 @@
     const Rx = cosY, Rz = -sinY; // Vecteur Droite
     const Lx = -cosY, Lz = sinY; // Vecteur Gauche
 
-    // 1. Détection Atterrissage sur la route avec les roues ("on touche la route avec les roues sa atteris") :
-    // A. Contact réel des roues rapporté par le moteur physique
-    if (flightTime > 0.12 && isGrounded) {
+    // 1. Détection du sol / piste :
+    // Si on est en CHUTE LIBRE (isFalling, carburant épuisé), le contact sol termine la chute et fait atterrir la voiture.
+    // Si on est en VOL PROPULSÉ (isFlying), AUCUN atterrissage par les roues : le sol empêche juste de traverser le bitume !
+    if (isFalling && flightTime > 0.12 && isGrounded) {
       return { landed: true, Vx, Vy, Vz };
     }
 
-    // B. Détection sous les roues par raycast vertical vers le bas
-    if (flightTime > 0.12 && raycaster && RayVec3 && meshes.length > 0) {
+    // Détection sous les roues par raycast vertical vers le bas
+    if (raycaster && RayVec3 && meshes.length > 0) {
       try {
         const vOrigin = powerState.colOrigin || new RayVec3();
         const vDir = powerState.colDir || new RayVec3();
@@ -2404,8 +2405,14 @@
           const ny = hit.face ? hit.face.normal.y : 1;
           // Surface de piste / route orientée vers le haut
           if (ny > 0.30 && hit.point.y <= pos.y + 0.20) {
-            pos.y = hit.point.y + 0.35; // Calage précis de la hauteur de caisse
-            return { landed: true, Vx, Vy, Vz };
+            if (isFalling) {
+              pos.y = hit.point.y + 0.35; // Calage précis de la hauteur de caisse
+              return { landed: true, Vx, Vy, Vz };
+            } else {
+              // En vol : support solide au niveau de la route (le vol continue sans atterrissage forcé)
+              pos.y = Math.max(pos.y, hit.point.y + 0.35);
+              if (Vy < 0) Vy = 0;
+            }
           }
         }
       } catch (e) {}
@@ -2493,11 +2500,15 @@
             const hit = fwdHits[0];
             const hitNy = hit.face ? hit.face.normal.y : 0;
 
-            // Route ou rampe montante devant l'avion -> Atterrissage immédiat
+            // Route ou rampe montante devant l'avion
             if (hitNy > 0.40 && hit.point.y <= pos.y + 0.35) {
-              if (flightTime > 0.12) {
+              if (isFalling) {
                 pos.y = hit.point.y + 0.35;
                 return { landed: true, Vx, Vy, Vz };
+              } else {
+                // En vol : montée naturelle sur la pente sans quitter le mode vol
+                pos.y = Math.max(pos.y, hit.point.y + 0.35);
+                if (Vy < 0) Vy = 0;
               }
             } else {
               // Mur, bordure haute ou pilier frontal
@@ -3109,33 +3120,13 @@
           powerState.flightPos = { x: state.position.x, y: state.position.y, z: state.position.z };
         }
 
-        // Résolution physique des collisions avec les murs et atterrissage sur la piste
-        const colResult = resolveFlightCollisions(powerState, Vx, Vy, Vz, dt, ray, RayVec3, meshes, isGrounded);
+        // Résolution physique des collisions avec les murs (vol continu sans atterrissage forcé par les roues)
+        const colResult = resolveFlightCollisions(powerState, Vx, Vy, Vz, dt, ray, RayVec3, meshes, isGrounded, false);
         Vx = colResult.Vx;
         Vy = colResult.Vy;
         Vz = colResult.Vz;
 
-        if (colResult.landed) {
-          powerState.isFlying = false;
-          powerState.isFalling = false;
-          if (state.position && powerState.flightPos) {
-            state.position.x = powerState.flightPos.x;
-            state.position.y = powerState.flightPos.y;
-            state.position.z = powerState.flightPos.z;
-          }
-          if (state.velocity) {
-            state.velocity.x = Vx;
-            state.velocity.y = 0;
-            state.velocity.z = Vz;
-          }
-          powerState.flightPos = null;
-          powerState.flightFuelCooldown = 2.0;
-          AudioFX.stopJet();
-          AudioFX.playTouchdown();
-          if (jetFlames) jetFlames.visible = false;
-          if (vortexTrails) vortexTrails.visible = false;
-          document.body.classList.remove('polytrack-flying');
-        } else if (powerState.flightPos) {
+        if (powerState.flightPos) {
           if (state.position) {
             state.position.x = powerState.flightPos.x;
             state.position.y = powerState.flightPos.y;
@@ -3219,7 +3210,7 @@
         let Vz = Math.cos(totalYaw) * speedMps;
 
         // Résolution physique des collisions avec murs et contact sol pendant la chute
-        const colResult = resolveFlightCollisions(powerState, Vx, powerState.fallVy, Vz, dt, ray, RayVec3, meshes, isGrounded);
+        const colResult = resolveFlightCollisions(powerState, Vx, powerState.fallVy, Vz, dt, ray, RayVec3, meshes, isGrounded, true);
         Vx = colResult.Vx;
         powerState.fallVy = colResult.Vy;
         Vz = colResult.Vz;
