@@ -873,14 +873,14 @@
       badge: 'POSTCOMBUSTION',
       tag: 'CHASSEUR SUPERSONIQUE',
       image: 'images/vehicle_plane.svg',
-      subtitle: 'Tricycle 3 Roues & Vol Plané',
+      subtitle: 'Vol Aérien ZQSD & Accélération Continue',
       icon: '✈️',
       color: '#a855f7',
-      powerName: '✈️ Vol Plané & Pilotage Aérien',
-      powerKey: '[SHIFT] EN L\'AIR + ZQSD',
-      powerDesc: 'Prenez un tremplin et maintenez [Shift] en l\'air pour planer. Contrôlez l\'avion avec ZQSD : Z pour cabrer, S pour plonger, Q/D pour incliner et virer.',
-      stats: { speed: 94, accel: 88, grip: 74, aero: 100 },
-      statLabels: { speed: '325 km/h', accel: '1.9s', grip: 'Tricycle', aero: 'Vol Plané' }
+      powerName: '✈️ Vol Aérien & Postcombustion',
+      powerKey: 'TREMPLIN + ZQSD',
+      powerDesc: 'Prenez un tremplin pour décoller ! L\'avion accélère en continu dans les airs (jusqu\'à 380 km/h). Pilotage ZQSD : Z pour monter, S pour descendre, Q/D pour virer.',
+      stats: { speed: 96, accel: 92, grip: 74, aero: 100 },
+      statLabels: { speed: '380 km/h', accel: 'Continu En L\'Air', grip: 'Tricycle', aero: 'Vol 3D ZQSD' }
     }
   };
 
@@ -1704,7 +1704,7 @@
       carInstance.getQuaternion = function() {
         const q = origGetQuaternion.call(this);
         const curType = window._selectedVehicleType || getSelectedVehicleType();
-        if (curType === 'avion' && powerState.planeAltitude > 0.001 && (powerState.planePitch !== 0 || powerState.planeRoll !== 0)) {
+        if (curType === 'avion' && (powerState.isFlying || powerState.planeAltitude > 0.001) && (powerState.planePitch !== 0 || powerState.planeRoll !== 0)) {
           try {
             const rotEuler = new THREE.Euler(powerState.planePitch, 0, powerState.planeRoll, 'YXZ');
             const rotQuat = new THREE.Quaternion().setFromEuler(rotEuler);
@@ -1962,7 +1962,7 @@
       }
 
       const isAirborne = !isGrounded && powerState.airborneFrames >= 2;
-      const wantsFlight = isAirborne && (powerState.shiftKeyHeld || powerState.spaceKeyHeld);
+      const wantsFlight = isAirborne;
       const canFly = powerState.flightFuel > 2;
       const isFlying = wantsFlight && canFly;
 
@@ -1972,11 +1972,12 @@
       powerState.wasFlying = isFlying;
       powerState.isFlying = isFlying;
 
-      // Aerodynamic engine trail when active in air
+      // 3D jet flame thrust visualization in flight
       if (jetFlames) {
         jetFlames.visible = isFlying;
         if (isFlying) {
-          jetFlames.scale.set(0.65, 0.65, 0.85 + Math.random() * 0.25);
+          const jitter = 0.85 + Math.random() * 0.3;
+          jetFlames.scale.set(jitter, jitter, 1.05 + Math.random() * 0.4);
         }
       }
 
@@ -1984,31 +1985,49 @@
         // Flight fuel drains at 20%/sec -> 5 seconds of active air control
         powerState.flightFuel = Math.max(0, powerState.flightFuel - 20 * dt);
 
-        // Aerodynamic flight control in the air (ZQSD / WASD / Flèches) :
-        // Z (ou Flèche Haut) : Cabrer le nez / planer plus loin
-        // S (ou Flèche Bas) : Piquer du nez vers la piste
-        // Q / D (ou Flèches Gauche/Droite) : Roulis & virage dans les airs
-        let targetPitch = 0.0;
-        let liftRate = 1.2; // gentle glide lift countering gravity
-        if (isUp) {
-          targetPitch = -0.26;
-          liftRate = 5.2; // climb / extend jump
-        } else if (isDown) {
-          targetPitch = 0.26;
-          liftRate = -6.5; // dive down
-        }
-        powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 6.0);
-        powerState.planeAltitude = Math.min(16, Math.max(0, powerState.planeAltitude + liftRate * dt));
+        // CONTINUOUS ACCELERATION ALL THE TIME IN THE AIR ("surtout sa doit accélerer tout le temps quand on est dans les airs")
+        state.speedKmh = Math.min(380, (state.speedKmh || 180) + 40 * dt);
 
-        // Aerodynamic banking (roll) when steering Left or Right (Q vs D)
-        const targetRoll = isLeft ? -0.36 : (isRight ? 0.36 : 0);
-        powerState.planeRoll += (targetRoll - powerState.planeRoll) * Math.min(1, dt * 7.5);
+        // Continuous forward air propulsion accelerating along vehicle heading
+        if (state.position) {
+          const q = state.quaternion || { y: 0, w: 1 };
+          const forwardX = -2 * (q.x * q.z + q.w * q.y);
+          const forwardZ = 1 - 2 * (q.x * q.x + q.y * q.y);
+          powerState.airThrust = Math.min(30.0, (powerState.airThrust || 12.0) + 12.0 * dt);
+          state.position.x += forwardX * powerState.airThrust * dt;
+          state.position.z += forwardZ * powerState.airThrust * dt;
+        }
+
+        // Direct 3D Flight Control (ZQSD / WASD / Flèches) :
+        // Z (ou Flèche Haut) : Monter vers le haut (altitude UP) & cabrer le nez
+        // S (ou Flèche Bas) : Descendre vers le bas (altitude DOWN) & piquer du nez
+        // Q (ou Flèche Gauche) : Virage & roulis à gauche
+        // D (ou Flèche Droite) : Virage & roulis à droite
+        let targetPitch = 0.0;
+        if (isUp) {
+          targetPitch = -0.34; // Nose up
+          powerState.planeAltitude = Math.min(36, powerState.planeAltitude + 10.5 * dt); // Z = vers le haut !
+          if (state.position) state.position.y += 9.5 * dt;
+        } else if (isDown) {
+          targetPitch = 0.34; // Nose down
+          powerState.planeAltitude = Math.max(0, powerState.planeAltitude - 12.0 * dt); // S = vers le bas !
+          if (state.position) state.position.y -= 7.5 * dt;
+        } else {
+          // Neutral: stable glide with gentle lift countering gravity
+          powerState.planeAltitude = Math.min(24, powerState.planeAltitude + 1.2 * dt);
+          if (state.position) state.position.y += 3.5 * dt;
+        }
+        powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1, dt * 7.5);
+
+        // Aerodynamic banking (roll) when steering Left (Q) or Right (D)
+        const targetRoll = isLeft ? -0.42 : (isRight ? 0.42 : 0);
+        powerState.planeRoll += (targetRoll - powerState.planeRoll) * Math.min(1, dt * 8.0);
 
         // Aerodynamic yaw steering rotation in the air (Q vs D)
         const steerDir = (isLeft ? 1 : 0) - (isRight ? 1 : 0);
         if (steerDir !== 0 && state.quaternion) {
           try {
-            const yawAngle = steerDir * 1.6 * dt;
+            const yawAngle = steerDir * 1.95 * dt;
             const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawAngle);
             const curQ = new THREE.Quaternion(state.quaternion.x, state.quaternion.y, state.quaternion.z, state.quaternion.w);
             curQ.multiply(yawQuat);
@@ -2019,16 +2038,14 @@
           } catch (e) {}
         }
 
-        // NO SPEED BOOST ("pas de boost dans les airs"):
-        // The plane preserves its natural momentum from the jump/tremplin without artificial rocket boost
-
         if (powerState.fxOverlayEl) {
-          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 72%, rgba(56, 189, 248, 0.15) 100%)';
+          powerState.fxOverlayEl.style.background = 'radial-gradient(circle, transparent 65%, rgba(168, 85, 247, 0.20) 90%, rgba(192, 132, 252, 0.38) 100%)';
           powerState.fxOverlayEl.style.opacity = '1';
         }
       } else {
-        // Flight fuel regenerates at 20%/sec -> fully regenerated in 5 seconds
-        powerState.flightFuel = Math.min(powerState.maxFlightFuel, powerState.flightFuel + 20 * dt);
+        // Flight fuel regenerates at 22%/sec -> fully regenerated in ~4.5 seconds
+        powerState.flightFuel = Math.min(powerState.maxFlightFuel, powerState.flightFuel + 22 * dt);
+        powerState.airThrust = 0;
 
         // If plane touches ground, reset altitude and angles immediately
         if (isGrounded) {
@@ -2036,7 +2053,7 @@
           powerState.planeRoll = 0;
           powerState.planePitch = 0;
         } else if (powerState.planeAltitude > 0.05) {
-          // If in air but not holding Shift, smoothly settle back to standard ballistic trajectory
+          // If in air but out of fuel, smoothly settle
           powerState.planeAltitude = Math.max(0, powerState.planeAltitude - 8.0 * dt);
           powerState.planeRoll += (0 - powerState.planeRoll) * Math.min(1, dt * 6.0);
           powerState.planePitch += (0 - powerState.planePitch) * Math.min(1, dt * 6.0);
@@ -2054,10 +2071,10 @@
       renderTelemetryHUD({
         label: 'FLIGHT',
         percent: powerState.flightFuel,
-        isReady: isAirborne && powerState.flightFuel > 5,
+        isReady: powerState.flightFuel > 5,
         isActive: isFlying,
-        glowColor: isFlying ? 'rgba(56, 189, 248, 0.9)' : 'rgba(52, 211, 153, 0.85)',
-        bgColor: isFlying ? 'rgba(14, 116, 144, 0.95)' : 'rgba(5, 150, 105, 0.95)'
+        glowColor: isFlying ? 'rgba(168, 85, 247, 0.95)' : 'rgba(56, 189, 248, 0.85)',
+        bgColor: isFlying ? 'rgba(126, 34, 206, 0.95)' : 'rgba(14, 116, 144, 0.95)'
       });
     }
   }
