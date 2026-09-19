@@ -2565,11 +2565,11 @@
     }
 
     // Atterrissage :
-    // 1) En chute libre (carburant épuisé) quand on touche le sol
-    // 2) OU en vol quand on rase la piste (pos.y <= minFloor + 0.08) ET qu'on maintient le frein (S / Bas)
-    const nearGround = (minFloor !== null && pos.y <= minFloor + 0.08);
-    const wantsManualLanding = nearGround && (powerState.sKeyHeld || (powerState.mouseAimY > 0.4 && powerState.isAirbrake));
-    const shouldLand = (isFalling && nearGround && flightTime > 0.12) || wantsManualLanding;
+    // Dès que le véhicule (Avion) touche le sol / la piste, retour immédiat en conduite normale
+    // (après au moins 0.20s de vol pour dégager le tremplin, ou en chute libre, ou freinage)
+    const touchesGround = (minFloor !== null && pos.y <= minFloor + 0.10) || isGrounded;
+    const wantsManualLanding = touchesGround && (powerState.sKeyHeld || (powerState.mouseAimY > 0.4 && powerState.isAirbrake));
+    const shouldLand = (touchesGround && flightTime > 0.20) || (isFalling && touchesGround && flightTime > 0.08) || wantsManualLanding;
 
     if (shouldLand) {
       if (minFloor !== null) pos.y = minFloor;
@@ -2611,6 +2611,9 @@
       powerState.lastGroundQuat = null;
       powerState.isLandingTransition = false;
       powerState.landingTransitionTimer = 0;
+      powerState.hasBeenFirmlyGrounded = true;
+      powerState.groundedFrames = 10;
+      powerState.takeoffCooldown = 0;
       powerState.isFlying = false;
       powerState.isFalling = false;
       powerState.fallVy = 0;
@@ -2633,13 +2636,13 @@
             return p;
           }
           if (powerState.lastGroundPos) {
-            const isVoid = p.y < -30 || (powerState.lastGroundPos.y != null && p.y < powerState.lastGroundPos.y - 2.5);
-            if (isVoid || powerState.isLandingTransition) {
+            const isVoid = p.y < -30;
+            if (isVoid) {
               p.x = powerState.lastGroundPos.x;
               p.y = powerState.lastGroundPos.y;
               p.z = powerState.lastGroundPos.z;
               return p;
-            } else {
+            } else if (!powerState.isFlying && !powerState.isFalling) {
               powerState.lastGroundPos.x = p.x;
               powerState.lastGroundPos.y = p.y;
               powerState.lastGroundPos.z = p.z;
@@ -2666,17 +2669,6 @@
             }
             return q;
           }
-          if (powerState.isLandingTransition && powerState.lastGroundQuat) {
-            try {
-              q.copy(powerState.lastGroundQuat);
-            } catch (e) {
-              q.x = powerState.lastGroundQuat.x;
-              q.y = powerState.lastGroundQuat.y;
-              q.z = powerState.lastGroundQuat.z;
-              q.w = powerState.lastGroundQuat.w;
-            }
-            return q;
-          }
         }
         return q;
       };
@@ -2691,8 +2683,8 @@
             e.position.y = powerState.flightPos.y;
             e.position.z = powerState.flightPos.z;
           } else if (powerState.lastGroundPos) {
-            const isVoid = e.position.y < -30 || (powerState.lastGroundPos.y != null && e.position.y < powerState.lastGroundPos.y - 2.5);
-            if (isVoid || powerState.isLandingTransition) {
+            const isVoid = e.position.y < -30;
+            if (isVoid) {
               e.position.x = powerState.lastGroundPos.x;
               e.position.y = powerState.lastGroundPos.y;
               e.position.z = powerState.lastGroundPos.z;
@@ -2717,20 +2709,21 @@
     if (controls.reset) {
       if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
       powerState.flightBlend = 0;
+      powerState.flightPos = null;
+      powerState.flightTime = 0;
       powerState.planeAltitude = 0;
       powerState.targetAltitude = 0;
-      powerState.flightHeading = 0;
-      powerState.groundHeading = null;
-      powerState.lastGroundX = null;
-      powerState.lastGroundZ = null;
-      powerState.lastGroundPos = null;
-      powerState.lastGroundQuat = null;
-      powerState.isLandingTransition = false;
-      powerState.landingTransitionTimer = 0;
       powerState.planeRoll = 0;
       powerState.planePitch = 0;
       powerState.planeYaw = 0;
       powerState.airThrust = 0;
+      powerState.hasBeenFirmlyGrounded = true;
+      powerState.groundedFrames = 10;
+      powerState.takeoffCooldown = 0;
+      powerState.airborneFrames = 0;
+      powerState.lastGroundPos = null;
+      powerState.lastGroundQuat = null;
+      powerState.isLandingTransition = false;
       powerState.isFlying = false;
       powerState.wasFlying = false;
       powerState.isFalling = false;
@@ -3003,8 +2996,17 @@
       // Détection contact sol réel
       if (!isGrounded) {
         powerState.airborneFrames++;
+        powerState.groundedFrames = 0;
       } else {
         powerState.airborneFrames = 0;
+        powerState.groundedFrames = (powerState.groundedFrames || 0) + 1;
+        if (powerState.groundedFrames >= 4) {
+          powerState.hasBeenFirmlyGrounded = true;
+        }
+      }
+
+      if (powerState.takeoffCooldown > 0) {
+        powerState.takeoffCooldown = Math.max(0, powerState.takeoffCooldown - dt);
       }
 
       // Suivi précis de la trajectoire au sol pour aligner le vecteur de vol lors du décollage
@@ -3050,13 +3052,18 @@
       }
 
       // Condition de décollage : être en l'air avec un minimum de 15% de fuel (évite les micro-décollages saccadés)
-      const canTakeoff = powerState.flightFuel >= 15;
+      // ET avoir roulé fermement au sol depuis le dernier atterrissage (cooldown expiré + contact sol confirmé)
+      const canTakeoff = powerState.flightFuel >= 15 &&
+                         (powerState.takeoffCooldown == null || powerState.takeoffCooldown <= 0) &&
+                         powerState.hasBeenFirmlyGrounded;
 
       // Flight Takeoff Trigger:
       // Active dès que le véhicule quitte le sol (tremplin / saut) avec au moins 15% de fuel
-      if (!powerState.isFlying && !powerState.isFalling && !isGrounded && powerState.airborneFrames >= 1 && canTakeoff) {
+      if (!powerState.isFlying && !powerState.isFalling && !isGrounded && powerState.airborneFrames >= 2 && canTakeoff) {
         powerState.isFlying = true;
         powerState.isFalling = false;
+        powerState.hasBeenFirmlyGrounded = false;
+        powerState.groundedFrames = 0;
         powerState.flightTime = 0;
         const p = state.position || { x: 0, y: 0, z: 0 };
         powerState.flightPos = { x: p.x, y: p.y, z: p.z };
@@ -3230,12 +3237,17 @@
         if (colResult.landed && powerState.flightPos) {
           powerState.isFlying = false;
           powerState.isFalling = false;
-          powerState.flightFuelCooldown = 2.5;
+          powerState.hasBeenFirmlyGrounded = false;
+          powerState.groundedFrames = 0;
+          powerState.takeoffCooldown = 1.0;
+          powerState.airborneFrames = 0;
+          powerState.flightFuelCooldown = 2.0;
           AudioFX.stopJet();
           AudioFX.playTouchdown();
           if (jetFlames) jetFlames.visible = false;
           if (vortexTrails) vortexTrails.visible = false;
           if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
+          if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
           document.body.classList.remove('polytrack-flying');
 
           const landX = powerState.flightPos.x;
@@ -3247,8 +3259,8 @@
 
           powerState.lastGroundPos = { x: landX, y: landY, z: landZ };
           powerState.lastGroundQuat = landQuat;
-          powerState.isLandingTransition = true;
-          powerState.landingTransitionTimer = 0.5;
+          powerState.isLandingTransition = false;
+          powerState.landingTransitionTimer = 0;
 
           if (state.position) {
             state.position.x = landX;
@@ -3377,9 +3389,14 @@
         if (colResult.landed && powerState.flightPos) {
           powerState.isFalling = false;
           powerState.isFlying = false;
-          powerState.flightFuelCooldown = 2.5;
+          powerState.hasBeenFirmlyGrounded = false;
+          powerState.groundedFrames = 0;
+          powerState.takeoffCooldown = 1.0;
+          powerState.airborneFrames = 0;
+          powerState.flightFuelCooldown = 2.0;
           AudioFX.playTouchdown();
           if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
+          if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
           document.body.classList.remove('polytrack-flying');
 
           const landX = powerState.flightPos.x;
@@ -3391,8 +3408,8 @@
 
           powerState.lastGroundPos = { x: landX, y: landY, z: landZ };
           powerState.lastGroundQuat = landQuat;
-          powerState.isLandingTransition = true;
-          powerState.landingTransitionTimer = 0.5;
+          powerState.isLandingTransition = false;
+          powerState.landingTransitionTimer = 0;
 
           if (state.position) {
             state.position.x = landX;
@@ -3464,6 +3481,7 @@
       else {
         document.body.classList.remove('polytrack-flying');
         if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
+        if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
         if (jetFlames) jetFlames.visible = false;
         if (vortexTrails) vortexTrails.visible = false;
         AudioFX.stopJet();
@@ -3476,12 +3494,8 @@
         powerState.planePitch = 0;
         powerState.planeRoll = 0;
         powerState.planeYaw = 0;
-        if (powerState.isLandingTransition) {
-          powerState.landingTransitionTimer = (powerState.landingTransitionTimer || 0.5) - dt;
-          if (powerState.landingTransitionTimer <= 0) {
-            powerState.isLandingTransition = false;
-          }
-        }
+        powerState.isLandingTransition = false;
+        powerState.landingTransitionTimer = 0;
       }
 
       // Viseur HUD Cockpit de chasse : visible UNIQUEMENT pendant le vol actif propulsé
