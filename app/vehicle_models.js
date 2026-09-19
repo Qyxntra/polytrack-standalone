@@ -1946,6 +1946,8 @@
     lastGroundQuat: null,
     isLandingTransition: false,
     landingTransitionTimer: 0,
+    landingSpeed: 0,
+    landingYaw: 0,
     planeRoll: 0,
     planePitch: 0,
     planeYaw: 0,
@@ -2411,7 +2413,7 @@
     const Rx = cosY, Rz = -sinY; // Vecteur Droite
     const Lx = -cosY, Lz = sinY; // Vecteur Gauche
 
-    // 1. Détection robuste du sol / piste par raycast vertical descendant balayé
+    // 1. Détection du sol directement sous les roues du véhicule (raycast vertical descendant)
     let groundHitY = null;
     let groundNy = 1;
 
@@ -2419,9 +2421,9 @@
       try {
         const vOrigin = powerState.colOrigin || new RayVec3();
         const vDir = powerState.colDir || new RayVec3();
-        // Balayage depuis au-dessus du véhicule jusqu'en dessous
-        const sweepAbove = 2.5;
-        const sweepBelow = Math.max(3.0, Math.abs(Vy) * dt * 3.5 + 1.5);
+        // Tirer depuis le centre du châssis vers le bas, pour détecter le sol SOUS les roues
+        const sweepAbove = 0.2;
+        const sweepBelow = Math.max(1.8, Math.abs(Vy) * dt + 0.8);
         vOrigin.set(pos.x, pos.y + sweepAbove, pos.z);
         vDir.set(0, -1, 0);
         raycaster.set(vOrigin, vDir);
@@ -2431,7 +2433,8 @@
         for (let i = 0; i < downHits.length; i++) {
           const hit = downHits[i];
           const ny = hit.face ? hit.face.normal.y : 1;
-          if (ny > 0.30) {
+          // Uniquement un sol situé sous la voiture (évite de détecter un pont au-dessus)
+          if (ny > 0.35 && hit.point.y <= pos.y + 0.15) {
             groundHitY = hit.point.y;
             groundNy = ny;
             break;
@@ -2516,15 +2519,23 @@
           vDir.set(Vx / moveSpeed, Vy / moveSpeed, Vz / moveSpeed);
           raycaster.set(vOrigin, vDir);
           raycaster.near = 0.05;
-          raycaster.far = moveDist + 1.25;
+          raycaster.far = moveDist + 0.8;
           const fwdHits = raycaster.intersectObjects(meshes, false);
           if (fwdHits.length > 0) {
             const hit = fwdHits[0];
             const hitNy = hit.face ? hit.face.normal.y : 0;
 
             if (hitNy > 0.40) {
-              // Route ou rampe montante devant l'avion
-              groundHitY = Math.max(groundHitY !== null ? groundHitY : hit.point.y, hit.point.y);
+              // Surface de sol / pente en face : glisser doucement sans écraser ni téléporter
+              const nx = hit.face ? hit.face.normal.x : 0;
+              const ny = hitNy;
+              const nz = hit.face ? hit.face.normal.z : 0;
+              const vDotN = Vx * nx + Vy * ny + Vz * nz;
+              if (vDotN < 0) {
+                Vx -= vDotN * nx;
+                Vy -= vDotN * ny;
+                Vz -= vDotN * nz;
+              }
             } else {
               // Mur, bordure haute ou pilier frontal
               const dx = pos.x - hit.point.x;
@@ -2560,7 +2571,7 @@
     pos.y += Vy * dt;
     pos.z += Vz * dt;
 
-    // Plafond de sol absolu : la voiture NE PEUT JAMAIS passer sous la route
+    // Plafond de sol absolu sous les roues : la voiture NE PEUT JAMAIS passer sous la route
     const minFloor = (groundHitY !== null) ? (groundHitY + 0.35) : null;
     if (minFloor !== null && pos.y < minFloor) {
       pos.y = minFloor;
@@ -2568,14 +2579,12 @@
     }
 
     // Atterrissage :
-    // Dès que le véhicule (Avion) touche le sol / la piste en descente ou palier, retour immédiat en conduite normale.
-    // Empêche les faux atterrissages en plein saut ascendant (Vy > 0.6) tout en garantissant un atterrissage réactif au toucher de roues.
-    const isAtGroundHeight = (minFloor !== null && pos.y <= minFloor + 0.06);
-    const isGroundedContact = isGrounded && (minFloor !== null ? pos.y <= minFloor + 0.12 : true);
-    const touchesGround = isAtGroundHeight || isGroundedContact;
-    const isDescendingOrLevel = Vy <= 0.6;
-    const wantsManualLanding = touchesGround && (powerState.sKeyHeld || (powerState.mouseAimY > 0.4 && powerState.isAirbrake));
-    const shouldLand = (touchesGround && isDescendingOrLevel && flightTime > 0.30) || (isFalling && touchesGround && flightTime > 0.10) || wantsManualLanding;
+    // Uniquement au contact effectif des roues avec le sol en palier/descente
+    // (empêche les arrêts brutaux intempestifs lors d'une plongée vers le bas)
+    const isAtGroundHeight = (minFloor !== null && pos.y <= minFloor + 0.04);
+    const isDescendingOrLevel = Vy <= 0.2;
+    const wantsManualLanding = isAtGroundHeight && (powerState.sKeyHeld || powerState.mouseRightClick);
+    const shouldLand = (isAtGroundHeight && isDescendingOrLevel && flightTime > 0.45) || (isFalling && isAtGroundHeight && flightTime > 0.15) || wantsManualLanding;
 
     if (shouldLand) {
       if (minFloor !== null) pos.y = minFloor;
@@ -2688,6 +2697,15 @@
             e.position.x = powerState.flightPos.x;
             e.position.y = powerState.flightPos.y;
             e.position.z = powerState.flightPos.z;
+          } else if (powerState.isLandingTransition && powerState.landingTransitionTimer > 0) {
+            // Empêche l'arrêt brutal à 0 km/h en maintenant la vitesse d'atterrissage
+            e.speedKmh = Math.max(e.speedKmh || 0, powerState.landingSpeed || 200);
+            if (e.velocity) {
+              const speedMps = e.speedKmh / 3.6;
+              const yaw = powerState.landingYaw || 0;
+              e.velocity.x = Math.sin(yaw) * speedMps;
+              e.velocity.z = Math.cos(yaw) * speedMps;
+            }
           } else if (powerState.lastGroundPos) {
             const isVoid = e.position.y < -800;
             if (isVoid) {
@@ -2710,6 +2728,22 @@
     const isDown = !!controls.down;
     const isLeft = !!controls.left;
     const isRight = !!controls.right;
+
+    // Maintien de vitesse fluide et transition d'atterrissage sans arrêt brutal
+    if (vType === 'avion' && powerState.isLandingTransition && powerState.landingTransitionTimer > 0) {
+      powerState.landingTransitionTimer -= dt;
+      state.speedKmh = Math.max(state.speedKmh || 0, powerState.landingSpeed);
+      if (isUp) {
+        powerState.landingSpeed = Math.max(180, powerState.landingSpeed - 12 * dt);
+      } else if (isDown) {
+        powerState.landingSpeed = Math.max(0, powerState.landingSpeed - 80 * dt);
+      } else {
+        powerState.landingSpeed = Math.max(0, powerState.landingSpeed - 30 * dt);
+      }
+      if (powerState.landingTransitionTimer <= 0) {
+        powerState.isLandingTransition = false;
+      }
+    }
 
     // Reset flight state on car respawn
     if (controls.reset) {
@@ -3251,13 +3285,24 @@
         Vz = colResult.Vz;
 
         if (colResult.landed && powerState.flightPos) {
+          const landX = powerState.flightPos.x;
+          const landY = powerState.flightPos.y;
+          const landZ = powerState.flightPos.z;
+          const currentFlightSpeed = powerState.flightSpeed || 240;
+
           powerState.isFlying = false;
           powerState.isFalling = false;
           powerState.hasBeenFirmlyGrounded = false;
           powerState.groundedFrames = 0;
-          powerState.takeoffCooldown = 1.0;
+          powerState.takeoffCooldown = 1.2;
           powerState.airborneFrames = 0;
           powerState.flightFuelCooldown = 2.0;
+
+          powerState.isLandingTransition = true;
+          powerState.landingTransitionTimer = 1.0;
+          powerState.landingSpeed = currentFlightSpeed;
+          powerState.landingYaw = totalYaw;
+
           AudioFX.stopJet();
           AudioFX.playTouchdown();
           if (jetFlames) jetFlames.visible = false;
@@ -3266,17 +3311,11 @@
           if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
           document.body.classList.remove('polytrack-flying');
 
-          const landX = powerState.flightPos.x;
-          const landY = powerState.flightPos.y;
-          const landZ = powerState.flightPos.z;
-
           const landQuat = (powerState.flightQuat && powerState.flightQuat.clone) ? powerState.flightQuat.clone() : new THREE.Quaternion();
           makeQuatFromYXZ(0, totalYaw, 0, landQuat);
 
           powerState.lastGroundPos = { x: landX, y: landY, z: landZ };
           powerState.lastGroundQuat = landQuat;
-          powerState.isLandingTransition = false;
-          powerState.landingTransitionTimer = 0;
 
           if (state.position) {
             state.position.x = landX;
@@ -3289,6 +3328,7 @@
             state.quaternion.z = landQuat.z;
             state.quaternion.w = landQuat.w;
           }
+          state.speedKmh = currentFlightSpeed;
           if (state.velocity) {
             state.velocity.x = Vx;
             state.velocity.y = 0;
@@ -3431,29 +3471,34 @@
         Vz = colResult.Vz;
 
         if (colResult.landed && powerState.flightPos) {
+          const landX = powerState.flightPos.x;
+          const landY = powerState.flightPos.y;
+          const landZ = powerState.flightPos.z;
+          const currentFlightSpeed = Math.max(160, powerState.flightSpeed || 180);
+
           powerState.isFalling = false;
           powerState.isFlying = false;
           powerState.hasBeenFirmlyGrounded = false;
           powerState.groundedFrames = 0;
-          powerState.takeoffCooldown = 1.0;
+          powerState.takeoffCooldown = 1.2;
           powerState.airborneFrames = 0;
           powerState.flightFuelCooldown = 2.0;
+
+          powerState.isLandingTransition = true;
+          powerState.landingTransitionTimer = 1.0;
+          powerState.landingSpeed = currentFlightSpeed;
+          powerState.landingYaw = totalYaw;
+
           AudioFX.playTouchdown();
           if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
           if (powerState.crosshairEl) powerState.crosshairEl.style.opacity = '0';
           document.body.classList.remove('polytrack-flying');
-
-          const landX = powerState.flightPos.x;
-          const landY = powerState.flightPos.y;
-          const landZ = powerState.flightPos.z;
 
           const landQuat = (powerState.flightQuat && powerState.flightQuat.clone) ? powerState.flightQuat.clone() : new THREE.Quaternion();
           makeQuatFromYXZ(0, totalYaw, 0, landQuat);
 
           powerState.lastGroundPos = { x: landX, y: landY, z: landZ };
           powerState.lastGroundQuat = landQuat;
-          powerState.isLandingTransition = false;
-          powerState.landingTransitionTimer = 0;
 
           if (state.position) {
             state.position.x = landX;
@@ -3466,6 +3511,7 @@
             state.quaternion.z = landQuat.z;
             state.quaternion.w = landQuat.w;
           }
+          state.speedKmh = currentFlightSpeed;
           if (state.velocity) {
             state.velocity.x = Vx;
             state.velocity.y = 0;
