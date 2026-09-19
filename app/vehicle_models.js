@@ -1954,6 +1954,7 @@
     mouseY: typeof window !== 'undefined' ? window.innerHeight / 2 : 0,
     mouseAimX: 0,
     mouseAimY: 0,
+    lastMouseMoveTime: 0,
     mouseLeftClick: false,
     mouseRightClick: false,
     crosshairEl: null,
@@ -1969,11 +1970,12 @@
   window.addEventListener('mousemove', e => {
     powerState.mouseX = e.clientX;
     powerState.mouseY = e.clientY;
+    powerState.lastMouseMoveTime = performance.now();
     const halfW = (window.innerWidth / 2) || 1;
     const halfH = (window.innerHeight / 2) || 1;
     powerState.mouseAimX = Math.max(-1, Math.min(1, (e.clientX - halfW) / halfW));
     powerState.mouseAimY = Math.max(-1, Math.min(1, (e.clientY - halfH) / halfH));
-    if (powerState.crosshairEl && powerState.isFlying) {
+    if (powerState.crosshairEl && (powerState.isFlying || powerState.isFalling)) {
       powerState.crosshairEl.style.left = e.clientX + 'px';
       powerState.crosshairEl.style.top = e.clientY + 'px';
     }
@@ -1993,11 +1995,12 @@
       const t = e.touches[0];
       powerState.mouseX = t.clientX;
       powerState.mouseY = t.clientY;
+      powerState.lastMouseMoveTime = performance.now();
       const halfW = (window.innerWidth / 2) || 1;
       const halfH = (window.innerHeight / 2) || 1;
       powerState.mouseAimX = Math.max(-1, Math.min(1, (t.clientX - halfW) / halfW));
       powerState.mouseAimY = Math.max(-1, Math.min(1, (t.clientY - halfH) / halfH));
-      if (powerState.crosshairEl && powerState.isFlying) {
+      if (powerState.crosshairEl && (powerState.isFlying || powerState.isFalling)) {
         powerState.crosshairEl.style.left = t.clientX + 'px';
         powerState.crosshairEl.style.top = t.clientY + 'px';
       }
@@ -2565,11 +2568,14 @@
     }
 
     // Atterrissage :
-    // Dès que le véhicule (Avion) touche le sol / la piste, retour immédiat en conduite normale
-    // (après au moins 0.20s de vol pour dégager le tremplin, ou en chute libre, ou freinage)
-    const touchesGround = (minFloor !== null && pos.y <= minFloor + 0.10) || isGrounded;
+    // Dès que le véhicule (Avion) touche le sol / la piste en descente ou palier, retour immédiat en conduite normale.
+    // Empêche les faux atterrissages en plein saut ascendant (Vy > 0.6) tout en garantissant un atterrissage réactif au toucher de roues.
+    const isAtGroundHeight = (minFloor !== null && pos.y <= minFloor + 0.06);
+    const isGroundedContact = isGrounded && (minFloor !== null ? pos.y <= minFloor + 0.12 : true);
+    const touchesGround = isAtGroundHeight || isGroundedContact;
+    const isDescendingOrLevel = Vy <= 0.6;
     const wantsManualLanding = touchesGround && (powerState.sKeyHeld || (powerState.mouseAimY > 0.4 && powerState.isAirbrake));
-    const shouldLand = (touchesGround && flightTime > 0.20) || (isFalling && touchesGround && flightTime > 0.08) || wantsManualLanding;
+    const shouldLand = (touchesGround && isDescendingOrLevel && flightTime > 0.30) || (isFalling && touchesGround && flightTime > 0.10) || wantsManualLanding;
 
     if (shouldLand) {
       if (minFloor !== null) pos.y = minFloor;
@@ -2636,7 +2642,7 @@
             return p;
           }
           if (powerState.lastGroundPos) {
-            const isVoid = p.y < -30;
+            const isVoid = p.y < -800;
             if (isVoid) {
               p.x = powerState.lastGroundPos.x;
               p.y = powerState.lastGroundPos.y;
@@ -2683,7 +2689,7 @@
             e.position.y = powerState.flightPos.y;
             e.position.z = powerState.flightPos.z;
           } else if (powerState.lastGroundPos) {
-            const isVoid = e.position.y < -30;
+            const isVoid = e.position.y < -800;
             if (isVoid) {
               e.position.x = powerState.lastGroundPos.x;
               e.position.y = powerState.lastGroundPos.y;
@@ -3090,17 +3096,27 @@
         
         AudioFX.startJet(powerState.flightSpeed);
         AudioFX.playAfterburnerBoom();
+      }
 
-        // Pause simulation worker car while in flight so it doesn't plummet into void
-        if (window._simulationWorker && window._playerCarId != null) {
-          try {
-            window._simulationWorker.postMessage({ messageType: 7, carId: window._playerCarId, isPaused: true });
-          } catch (e) {}
+      // Recentrage automatique fluide du réticule dès que la souris s'arrête
+      // Évite que l'avion continue à tourner en rond indéfiniment quand le joueur ne bouge plus la souris
+      const timeSinceMouseMove = performance.now() - (powerState.lastMouseMoveTime || 0);
+      if (timeSinceMouseMove > 100) {
+        const decay = Math.exp(-5.5 * dt);
+        powerState.mouseAimX *= decay;
+        powerState.mouseAimY *= decay;
+        if (Math.abs(powerState.mouseAimX) < 0.005) powerState.mouseAimX = 0;
+        if (Math.abs(powerState.mouseAimY) < 0.005) powerState.mouseAimY = 0;
+        if (powerState.crosshairEl && (powerState.isFlying || powerState.isFalling)) {
+          const halfW = (window.innerWidth / 2) || 1;
+          const halfH = (window.innerHeight / 2) || 1;
+          powerState.crosshairEl.style.left = (halfW + powerState.mouseAimX * halfW) + 'px';
+          powerState.crosshairEl.style.top = (halfH + powerState.mouseAimY * halfH) + 'px';
         }
       }
 
-      // Normalized mouse offset with ultra-tight deadzone for instant response and center stability
-      const deadzone = 0.015;
+      // Normalized mouse offset with deadzone for center stability
+      const deadzone = 0.02;
       let aimX = 0;
       if (Math.abs(powerState.mouseAimX) > deadzone) {
         aimX = (powerState.mouseAimX - Math.sign(powerState.mouseAimX) * deadzone) / (1 - deadzone);
@@ -3149,8 +3165,8 @@
         powerState.isAirbrake = wantsAirbrake;
 
         // Dynamic Fuel Consumption rate:
-        // Afterburner consumes ~24%/s, Airbrake saves fuel at ~7.5%/s, Cruise consumes ~15%/s
-        const fuelDrainRate = wantsAfterburner ? 24.0 : (wantsAirbrake ? 7.5 : 15.0);
+        // Afterburner consumes ~12%/s, Airbrake saves fuel at ~1.5%/s, Cruise consumes ~3.5%/s (~28s de vol)
+        const fuelDrainRate = wantsAfterburner ? 12.0 : (wantsAirbrake ? 1.5 : 3.5);
         powerState.flightFuel = Math.max(0, powerState.flightFuel - fuelDrainRate * dt);
 
         document.body.classList.add('polytrack-flying');
@@ -3207,16 +3223,16 @@
         // Modulation de la boucle sonore continue de turbine
         AudioFX.updateJet(powerState.flightSpeed, wantsAfterburner, wantsAirbrake);
 
-        // Vitesse verticale (Vy)
+        // Vitesse verticale (Vy) : vol en palier horizontal parfait à aimY = 0
         let Vy = 0;
         if (aimY < 0) {
           const climb = -aimY;
-          Vy = 6.0 + climb * (wantsAfterburner ? 32.0 : 24.0);
+          Vy = climb * (wantsAfterburner ? 32.0 : 22.0);
         } else if (aimY > 0) {
           const dive = aimY;
-          Vy = -dive * (wantsAirbrake ? 16.0 : 26.0);
+          Vy = -dive * (wantsAirbrake ? 24.0 : 28.0);
         } else {
-          Vy = wantsAirbrake ? -0.5 : 1.0;
+          Vy = wantsAirbrake ? -2.5 : 0.0;
         }
 
         const pitchCos = Math.cos(powerState.planePitch);
@@ -3282,17 +3298,17 @@
           powerState.flightPos = null;
           powerState.flightQuat = null;
 
-          if (window._simulationWorker && window._playerCarId != null) {
+          if (window._simulationWorker) {
             try {
               window._simulationWorker.postMessage({
                 messageType: 'TeleportCar',
-                carId: window._playerCarId,
+                carId: window._playerCarId != null ? window._playerCarId : null,
                 position: { x: landX, y: landY, z: landZ },
                 quaternion: { x: landQuat.x, y: landQuat.y, z: landQuat.z, w: landQuat.w }
               });
               window._simulationWorker.postMessage({
                 messageType: 7,
-                carId: window._playerCarId,
+                carId: window._playerCarId != null ? window._playerCarId : null,
                 isPaused: false
               });
             } catch (e) {}
@@ -3376,7 +3392,35 @@
         state.speedKmh = powerState.flightSpeed;
         const speedMps = powerState.flightSpeed / 3.6;
 
+        // Pilotage aérodynamique doux en vol plané (permet de guider l'atterrissage sur la piste)
+        const keySteer = (controls.right ? 1.0 : 0) - (controls.left ? 1.0 : 0);
+        const steerInput = Math.max(-1.0, Math.min(1.0, aimX + keySteer));
+        if (Math.abs(steerInput) > 0.005) {
+          powerState.flightHeading -= steerInput * 2.5 * dt;
+        }
+        const targetYaw = -steerInput * 0.28;
+        const targetRoll = steerInput * 0.28;
+        const targetPitch = aimY * 0.28;
+
+        const snapRate = Math.min(1.0, dt * 16.0);
+        powerState.planeYaw += (targetYaw - powerState.planeYaw) * snapRate;
+        powerState.planePitch += (targetPitch - powerState.planePitch) * snapRate;
+        powerState.planeRoll += (targetRoll - powerState.planeRoll) * snapRate;
+
         const totalYaw = powerState.flightHeading + (powerState.planeYaw || 0);
+
+        if (powerState.flightQuat) {
+          try {
+            makeQuatFromYXZ(powerState.planePitch, totalYaw, powerState.planeRoll, powerState.flightQuat);
+            if (state.quaternion) {
+              state.quaternion.x = powerState.flightQuat.x;
+              state.quaternion.y = powerState.flightQuat.y;
+              state.quaternion.z = powerState.flightQuat.z;
+              state.quaternion.w = powerState.flightQuat.w;
+            }
+          } catch (e) {}
+        }
+
         let Vx = Math.sin(totalYaw) * speedMps;
         let Vz = Math.cos(totalYaw) * speedMps;
 
@@ -3431,17 +3475,17 @@
           powerState.flightPos = null;
           powerState.flightQuat = null;
 
-          if (window._simulationWorker && window._playerCarId != null) {
+          if (window._simulationWorker) {
             try {
               window._simulationWorker.postMessage({
                 messageType: 'TeleportCar',
-                carId: window._playerCarId,
+                carId: window._playerCarId != null ? window._playerCarId : null,
                 position: { x: landX, y: landY, z: landZ },
                 quaternion: { x: landQuat.x, y: landQuat.y, z: landQuat.z, w: landQuat.w }
               });
               window._simulationWorker.postMessage({
                 messageType: 7,
-                carId: window._playerCarId,
+                carId: window._playerCarId != null ? window._playerCarId : null,
                 isPaused: false
               });
             } catch (e) {}
@@ -3457,23 +3501,6 @@
             state.velocity.y = powerState.fallVy;
             state.velocity.z = Vz;
           }
-        }
-
-        // Nez plongeant naturellement selon le vecteur de vitesse de chute
-        const targetPitch = Math.max(-0.6, Math.min(0.6, Math.atan2(-powerState.fallVy, Math.max(4, speedMps))));
-        powerState.planePitch += (targetPitch - powerState.planePitch) * Math.min(1.0, dt * 6.0);
-        powerState.planeRoll += (0 - powerState.planeRoll) * Math.min(1.0, dt * 4.0);
-
-        if (powerState.flightQuat) {
-          try {
-            makeQuatFromYXZ(powerState.planePitch, totalYaw, powerState.planeRoll, powerState.flightQuat);
-            if (state.quaternion) {
-              state.quaternion.x = powerState.flightQuat.x;
-              state.quaternion.y = powerState.flightQuat.y;
-              state.quaternion.z = powerState.flightQuat.z;
-              state.quaternion.w = powerState.flightQuat.w;
-            }
-          } catch (e) {}
         }
       }
 
