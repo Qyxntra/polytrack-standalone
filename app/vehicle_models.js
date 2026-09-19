@@ -11,6 +11,28 @@
 (function() {
   'use strict';
 
+  // --- 0. SIMULATION WORKER & CAR ID INTERCEPTOR ---
+  if (typeof window !== 'undefined' && window.Worker) {
+    const _OrigWorker = window.Worker;
+    window.Worker = function(url, options) {
+      const w = new _OrigWorker(url, options);
+      try {
+        if (typeof url === 'string' && url.includes('simulation_worker')) {
+          window._simulationWorker = w;
+          const _origPost = w.postMessage;
+          w.postMessage = function(data, transfer) {
+            if (data && (data.messageType === 3 || data.messageType === 'CreateCar')) {
+              window._playerCarId = data.carId;
+            }
+            return _origPost.apply(this, arguments);
+          };
+        }
+      } catch (e) {}
+      return w;
+    };
+    window.Worker.prototype = _OrigWorker.prototype;
+  }
+
   // --- AUDIO SYNTHESIZER (Web Audio API for UI feedback) ---
   const AudioFX = {
     ctx: null,
@@ -1920,6 +1942,10 @@
     groundHeading: null,
     lastGroundX: null,
     lastGroundZ: null,
+    lastGroundPos: null,
+    lastGroundQuat: null,
+    isLandingTransition: false,
+    landingTransitionTimer: 0,
     planeRoll: 0,
     planePitch: 0,
     planeYaw: 0,
@@ -2382,37 +2408,30 @@
     const Rx = cosY, Rz = -sinY; // Vecteur Droite
     const Lx = -cosY, Lz = sinY; // Vecteur Gauche
 
-    // 1. Détection du sol / piste :
-    // Si on est en CHUTE LIBRE (isFalling, carburant épuisé), le contact sol termine la chute et fait atterrir la voiture.
-    // Si on est en VOL PROPULSÉ (isFlying), AUCUN atterrissage par les roues : le sol empêche juste de traverser le bitume !
-    if (isFalling && flightTime > 0.12 && isGrounded) {
-      return { landed: true, Vx, Vy, Vz };
-    }
+    // 1. Détection robuste du sol / piste par raycast vertical descendant balayé
+    let groundHitY = null;
+    let groundNy = 1;
 
-    // Détection sous les roues par raycast vertical vers le bas
     if (raycaster && RayVec3 && meshes.length > 0) {
       try {
         const vOrigin = powerState.colOrigin || new RayVec3();
         const vDir = powerState.colDir || new RayVec3();
-        vOrigin.set(pos.x, pos.y + 0.35, pos.z);
+        // Balayage depuis au-dessus du véhicule jusqu'en dessous
+        const sweepAbove = 2.5;
+        const sweepBelow = Math.max(3.0, Math.abs(Vy) * dt * 3.5 + 1.5);
+        vOrigin.set(pos.x, pos.y + sweepAbove, pos.z);
         vDir.set(0, -1, 0);
         raycaster.set(vOrigin, vDir);
         raycaster.near = 0.01;
-        raycaster.far = 0.85; // Hauteur roues/sol
+        raycaster.far = sweepAbove + sweepBelow;
         const downHits = raycaster.intersectObjects(meshes, false);
-        if (downHits.length > 0) {
-          const hit = downHits[0];
+        for (let i = 0; i < downHits.length; i++) {
+          const hit = downHits[i];
           const ny = hit.face ? hit.face.normal.y : 1;
-          // Surface de piste / route orientée vers le haut
-          if (ny > 0.30 && hit.point.y <= pos.y + 0.20) {
-            if (isFalling) {
-              pos.y = hit.point.y + 0.35; // Calage précis de la hauteur de caisse
-              return { landed: true, Vx, Vy, Vz };
-            } else {
-              // En vol : support solide au niveau de la route (le vol continue sans atterrissage forcé)
-              pos.y = Math.max(pos.y, hit.point.y + 0.35);
-              if (Vy < 0) Vy = 0;
-            }
+          if (ny > 0.30) {
+            groundHitY = hit.point.y;
+            groundNy = ny;
+            break;
           }
         }
       } catch (e) {}
@@ -2500,16 +2519,9 @@
             const hit = fwdHits[0];
             const hitNy = hit.face ? hit.face.normal.y : 0;
 
-            // Route ou rampe montante devant l'avion
-            if (hitNy > 0.40 && hit.point.y <= pos.y + 0.35) {
-              if (isFalling) {
-                pos.y = hit.point.y + 0.35;
-                return { landed: true, Vx, Vy, Vz };
-              } else {
-                // En vol : montée naturelle sur la pente sans quitter le mode vol
-                pos.y = Math.max(pos.y, hit.point.y + 0.35);
-                if (Vy < 0) Vy = 0;
-              }
+            if (hitNy > 0.40) {
+              // Route ou rampe montante devant l'avion
+              groundHitY = Math.max(groundHitY !== null ? groundHitY : hit.point.y, hit.point.y);
             } else {
               // Mur, bordure haute ou pilier frontal
               const dx = pos.x - hit.point.x;
@@ -2518,12 +2530,9 @@
               if (pDist > 0.001) {
                 const nx = dx / pDist;
                 const nz = dz / pDist;
-
-                // Repousser hors de l'obstacle
                 pos.x = hit.point.x + nx * 1.15;
                 pos.z = hit.point.z + nz * 1.15;
 
-                // Déviation et glissement élastique
                 const vDotN = Vx * nx + Vz * nz;
                 if (vDotN < 0) {
                   Vx -= 1.35 * vDotN * nx;
@@ -2531,7 +2540,6 @@
                   Vx *= 0.82;
                   Vz *= 0.82;
                 }
-
                 const now = performance.now();
                 if (!powerState.lastWallScrape || now - powerState.lastWallScrape > 160) {
                   AudioFX.playWallScrape();
@@ -2544,12 +2552,31 @@
       } catch (e) {}
     }
 
-    // Déplacement libre
+    // Déplacement de la position
     pos.x += Vx * dt;
     pos.y += Vy * dt;
     pos.z += Vz * dt;
 
-    return { landed: false, Vx, Vy, Vz };
+    // Plafond de sol absolu : la voiture NE PEUT JAMAIS passer sous la route
+    const minFloor = (groundHitY !== null) ? (groundHitY + 0.35) : null;
+    if (minFloor !== null && pos.y < minFloor) {
+      pos.y = minFloor;
+      if (Vy < 0) Vy = 0;
+    }
+
+    // Atterrissage :
+    // 1) En chute libre (carburant épuisé) quand on touche le sol
+    // 2) OU en vol quand on rase la piste (pos.y <= minFloor + 0.08) ET qu'on maintient le frein (S / Bas)
+    const nearGround = (minFloor !== null && pos.y <= minFloor + 0.08);
+    const wantsManualLanding = nearGround && (powerState.sKeyHeld || (powerState.mouseAimY > 0.4 && powerState.isAirbrake));
+    const shouldLand = (isFalling && nearGround && flightTime > 0.12) || wantsManualLanding;
+
+    if (shouldLand) {
+      if (minFloor !== null) pos.y = minFloor;
+      return { landed: true, Vx, Vy: 0, Vz, groundHitY, groundNy };
+    }
+
+    return { landed: false, Vx, Vy, Vz, groundHitY, groundNy };
   }
 
   function updatePower(carInstance, dt, THREE, l, be, te, ie, xe, ye, ne) {
@@ -2580,6 +2607,10 @@
       powerState.groundHeading = null;
       powerState.lastGroundX = null;
       powerState.lastGroundZ = null;
+      powerState.lastGroundPos = null;
+      powerState.lastGroundQuat = null;
+      powerState.isLandingTransition = false;
+      powerState.landingTransitionTimer = 0;
       powerState.isFlying = false;
       powerState.isFalling = false;
       powerState.fallVy = 0;
@@ -2594,10 +2625,26 @@
       carInstance.getPosition = function() {
         const p = origGetPosition.call(this);
         const curType = window._selectedVehicleType || getSelectedVehicleType();
-        if (curType === 'avion' && (powerState.isFlying || powerState.isFalling) && powerState.flightPos) {
-          p.x = powerState.flightPos.x;
-          p.y = powerState.flightPos.y;
-          p.z = powerState.flightPos.z;
+        if (curType === 'avion') {
+          if ((powerState.isFlying || powerState.isFalling) && powerState.flightPos) {
+            p.x = powerState.flightPos.x;
+            p.y = powerState.flightPos.y;
+            p.z = powerState.flightPos.z;
+            return p;
+          }
+          if (powerState.lastGroundPos) {
+            const isVoid = p.y < -30 || (powerState.lastGroundPos.y != null && p.y < powerState.lastGroundPos.y - 2.5);
+            if (isVoid || powerState.isLandingTransition) {
+              p.x = powerState.lastGroundPos.x;
+              p.y = powerState.lastGroundPos.y;
+              p.z = powerState.lastGroundPos.z;
+              return p;
+            } else {
+              powerState.lastGroundPos.x = p.x;
+              powerState.lastGroundPos.y = p.y;
+              powerState.lastGroundPos.z = p.z;
+            }
+          }
         }
         return p;
       };
@@ -2607,17 +2654,52 @@
       carInstance.getQuaternion = function() {
         const q = origGetQuaternion.call(this);
         const curType = window._selectedVehicleType || getSelectedVehicleType();
-        if (curType === 'avion' && (powerState.isFlying || powerState.isFalling) && powerState.flightQuat) {
-          try {
-            q.copy(powerState.flightQuat);
-          } catch (e) {
-            q.x = powerState.flightQuat.x;
-            q.y = powerState.flightQuat.y;
-            q.z = powerState.flightQuat.z;
-            q.w = powerState.flightQuat.w;
+        if (curType === 'avion') {
+          if ((powerState.isFlying || powerState.isFalling) && powerState.flightQuat) {
+            try {
+              q.copy(powerState.flightQuat);
+            } catch (e) {
+              q.x = powerState.flightQuat.x;
+              q.y = powerState.flightQuat.y;
+              q.z = powerState.flightQuat.z;
+              q.w = powerState.flightQuat.w;
+            }
+            return q;
+          }
+          if (powerState.isLandingTransition && powerState.lastGroundQuat) {
+            try {
+              q.copy(powerState.lastGroundQuat);
+            } catch (e) {
+              q.x = powerState.lastGroundQuat.x;
+              q.y = powerState.lastGroundQuat.y;
+              q.z = powerState.lastGroundQuat.z;
+              q.w = powerState.lastGroundQuat.w;
+            }
+            return q;
           }
         }
         return q;
+      };
+
+      const origSetCarState = carInstance.setCarState;
+      carInstance._origSetCarState = origSetCarState;
+      carInstance.setCarState = function(e, t) {
+        const curType = window._selectedVehicleType || getSelectedVehicleType();
+        if (curType === 'avion' && e && e.position) {
+          if ((powerState.isFlying || powerState.isFalling) && powerState.flightPos) {
+            e.position.x = powerState.flightPos.x;
+            e.position.y = powerState.flightPos.y;
+            e.position.z = powerState.flightPos.z;
+          } else if (powerState.lastGroundPos) {
+            const isVoid = e.position.y < -30 || (powerState.lastGroundPos.y != null && e.position.y < powerState.lastGroundPos.y - 2.5);
+            if (isVoid || powerState.isLandingTransition) {
+              e.position.x = powerState.lastGroundPos.x;
+              e.position.y = powerState.lastGroundPos.y;
+              e.position.z = powerState.lastGroundPos.z;
+            }
+          }
+        }
+        return origSetCarState.call(this, e, t);
       };
     }
 
@@ -2641,6 +2723,10 @@
       powerState.groundHeading = null;
       powerState.lastGroundX = null;
       powerState.lastGroundZ = null;
+      powerState.lastGroundPos = null;
+      powerState.lastGroundQuat = null;
+      powerState.isLandingTransition = false;
+      powerState.landingTransitionTimer = 0;
       powerState.planeRoll = 0;
       powerState.planePitch = 0;
       powerState.planeYaw = 0;
@@ -2655,6 +2741,11 @@
       powerState.nitroFuel = 100;
       powerState.ramEnergy = 100;
       powerState.drsEnergy = 100;
+      if (window._simulationWorker && window._playerCarId != null) {
+        try {
+          window._simulationWorker.postMessage({ messageType: 7, carId: window._playerCarId, isPaused: false });
+        } catch (e) {}
+      }
     }
 
     // Hide unneeded dynamic meshes for other vehicle types
@@ -2972,6 +3063,9 @@
         powerState.takeoffGroundY = p.y;
         powerState.flightSpeed = Math.min(270, Math.max(180, (state.speedKmh || 220)));
         powerState.fallVy = 0;
+        powerState.lastGroundPos = null;
+        powerState.lastGroundQuat = null;
+        powerState.isLandingTransition = false;
 
         // Cap de vol initial : priorité absolue à la direction réelle de déplacement sur la piste
         if (powerState.groundHeading != null) {
@@ -2989,6 +3083,13 @@
         
         AudioFX.startJet(powerState.flightSpeed);
         AudioFX.playAfterburnerBoom();
+
+        // Pause simulation worker car while in flight so it doesn't plummet into void
+        if (window._simulationWorker && window._playerCarId != null) {
+          try {
+            window._simulationWorker.postMessage({ messageType: 7, carId: window._playerCarId, isPaused: true });
+          } catch (e) {}
+        }
       }
 
       // Normalized mouse offset with ultra-tight deadzone for instant response and center stability
@@ -3120,13 +3221,71 @@
           powerState.flightPos = { x: state.position.x, y: state.position.y, z: state.position.z };
         }
 
-        // Résolution physique des collisions avec les murs (vol continu sans atterrissage forcé par les roues)
+        // Résolution physique des collisions avec les murs et détection du sol
         const colResult = resolveFlightCollisions(powerState, Vx, Vy, Vz, dt, ray, RayVec3, meshes, isGrounded, false);
         Vx = colResult.Vx;
         Vy = colResult.Vy;
         Vz = colResult.Vz;
 
-        if (powerState.flightPos) {
+        if (colResult.landed && powerState.flightPos) {
+          powerState.isFlying = false;
+          powerState.isFalling = false;
+          powerState.flightFuelCooldown = 2.5;
+          AudioFX.stopJet();
+          AudioFX.playTouchdown();
+          if (jetFlames) jetFlames.visible = false;
+          if (vortexTrails) vortexTrails.visible = false;
+          if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
+          document.body.classList.remove('polytrack-flying');
+
+          const landX = powerState.flightPos.x;
+          const landY = powerState.flightPos.y;
+          const landZ = powerState.flightPos.z;
+
+          const landQuat = (powerState.flightQuat && powerState.flightQuat.clone) ? powerState.flightQuat.clone() : new THREE.Quaternion();
+          makeQuatFromYXZ(0, totalYaw, 0, landQuat);
+
+          powerState.lastGroundPos = { x: landX, y: landY, z: landZ };
+          powerState.lastGroundQuat = landQuat;
+          powerState.isLandingTransition = true;
+          powerState.landingTransitionTimer = 0.5;
+
+          if (state.position) {
+            state.position.x = landX;
+            state.position.y = landY;
+            state.position.z = landZ;
+          }
+          if (state.quaternion) {
+            state.quaternion.x = landQuat.x;
+            state.quaternion.y = landQuat.y;
+            state.quaternion.z = landQuat.z;
+            state.quaternion.w = landQuat.w;
+          }
+          if (state.velocity) {
+            state.velocity.x = Vx;
+            state.velocity.y = 0;
+            state.velocity.z = Vz;
+          }
+
+          powerState.flightPos = null;
+          powerState.flightQuat = null;
+
+          if (window._simulationWorker && window._playerCarId != null) {
+            try {
+              window._simulationWorker.postMessage({
+                messageType: 'TeleportCar',
+                carId: window._playerCarId,
+                position: { x: landX, y: landY, z: landZ },
+                quaternion: { x: landQuat.x, y: landQuat.y, z: landQuat.z, w: landQuat.w }
+              });
+              window._simulationWorker.postMessage({
+                messageType: 7,
+                carId: window._playerCarId,
+                isPaused: false
+              });
+            } catch (e) {}
+          }
+        } else if (powerState.flightPos) {
           if (state.position) {
             state.position.x = powerState.flightPos.x;
             state.position.y = powerState.flightPos.y;
@@ -3215,21 +3374,61 @@
         powerState.fallVy = colResult.Vy;
         Vz = colResult.Vz;
 
-        if (colResult.landed) {
+        if (colResult.landed && powerState.flightPos) {
           powerState.isFalling = false;
-          if (state.position && powerState.flightPos) {
-            state.position.x = powerState.flightPos.x;
-            state.position.y = powerState.flightPos.y;
-            state.position.z = powerState.flightPos.z;
+          powerState.isFlying = false;
+          powerState.flightFuelCooldown = 2.5;
+          AudioFX.playTouchdown();
+          if (powerState.fxOverlayEl) powerState.fxOverlayEl.style.opacity = '0';
+          document.body.classList.remove('polytrack-flying');
+
+          const landX = powerState.flightPos.x;
+          const landY = powerState.flightPos.y;
+          const landZ = powerState.flightPos.z;
+
+          const landQuat = (powerState.flightQuat && powerState.flightQuat.clone) ? powerState.flightQuat.clone() : new THREE.Quaternion();
+          makeQuatFromYXZ(0, totalYaw, 0, landQuat);
+
+          powerState.lastGroundPos = { x: landX, y: landY, z: landZ };
+          powerState.lastGroundQuat = landQuat;
+          powerState.isLandingTransition = true;
+          powerState.landingTransitionTimer = 0.5;
+
+          if (state.position) {
+            state.position.x = landX;
+            state.position.y = landY;
+            state.position.z = landZ;
+          }
+          if (state.quaternion) {
+            state.quaternion.x = landQuat.x;
+            state.quaternion.y = landQuat.y;
+            state.quaternion.z = landQuat.z;
+            state.quaternion.w = landQuat.w;
           }
           if (state.velocity) {
             state.velocity.x = Vx;
             state.velocity.y = 0;
             state.velocity.z = Vz;
           }
+
           powerState.flightPos = null;
-          powerState.flightFuelCooldown = 2.5;
-          AudioFX.playTouchdown();
+          powerState.flightQuat = null;
+
+          if (window._simulationWorker && window._playerCarId != null) {
+            try {
+              window._simulationWorker.postMessage({
+                messageType: 'TeleportCar',
+                carId: window._playerCarId,
+                position: { x: landX, y: landY, z: landZ },
+                quaternion: { x: landQuat.x, y: landQuat.y, z: landQuat.z, w: landQuat.w }
+              });
+              window._simulationWorker.postMessage({
+                messageType: 7,
+                carId: window._playerCarId,
+                isPaused: false
+              });
+            } catch (e) {}
+          }
         } else if (powerState.flightPos) {
           if (state.position) {
             state.position.x = powerState.flightPos.x;
@@ -3269,6 +3468,7 @@
         if (vortexTrails) vortexTrails.visible = false;
         AudioFX.stopJet();
         powerState.flightPos = null;
+        powerState.flightQuat = null;
         powerState.isFalling = false;
         powerState.isFlying = false;
         powerState.isAfterburner = false;
@@ -3276,6 +3476,12 @@
         powerState.planePitch = 0;
         powerState.planeRoll = 0;
         powerState.planeYaw = 0;
+        if (powerState.isLandingTransition) {
+          powerState.landingTransitionTimer = (powerState.landingTransitionTimer || 0.5) - dt;
+          if (powerState.landingTransitionTimer <= 0) {
+            powerState.isLandingTransition = false;
+          }
+        }
       }
 
       // Viseur HUD Cockpit de chasse : visible UNIQUEMENT pendant le vol actif propulsé
